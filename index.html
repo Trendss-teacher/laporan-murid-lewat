@@ -11,9 +11,9 @@
   <title>Rekod Murid Lewat</title>
 
 
-  <!-- =================================================
+  <!-- =============================================
        QR SCANNER
-       ================================================= -->
+       ============================================= -->
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
   </script>
@@ -172,6 +172,15 @@
     }
 
 
+    .loading {
+
+      text-align: center;
+
+      padding: 20px;
+
+    }
+
+
     button {
 
       width: 100%;
@@ -203,19 +212,9 @@
 
     }
 
-
-    .loading {
-
-      text-align: center;
-
-      padding: 20px;
-
-    }
-
   </style>
 
 </head>
-
 
 
 <body>
@@ -224,9 +223,9 @@
 <div class="container">
 
 
-  <!-- =================================================
-       HEADER
-       ================================================= -->
+  <!-- =============================================
+       TAJUK
+       ============================================= -->
 
   <div class="header">
 
@@ -241,16 +240,16 @@
   </div>
 
 
-  <!-- =================================================
-       CAMERA / QR SCANNER
-       ================================================= -->
+  <!-- =============================================
+       SCANNER
+       ============================================= -->
 
   <div id="reader"></div>
 
 
-  <!-- =================================================
-       RESULT
-       ================================================= -->
+  <!-- =============================================
+       KEPUTUSAN
+       ============================================= -->
 
   <div id="result"></div>
 
@@ -262,26 +261,27 @@
 <script>
 
 
-/* =====================================================
-   GOOGLE APPS SCRIPT
-   ===================================================== */
+/* ==================================================
+   URL GOOGLE APPS SCRIPT
+   ================================================== */
 
 const API_URL =
   "https://script.google.com/macros/s/AKfycby4Pm9xKbwLwVzxZTAWESBILTVSiyXF3i_o3Vn4we0jETXuxzA1AsNy-yATM7bkImnC/exec";
 
 
-/* =====================================================
+/* ==================================================
    VARIABLE
-   ===================================================== */
+   ================================================== */
 
 let scanner = null;
 
 let sedangScan = false;
 
 
-/* =====================================================
-   QR BERJAYA DIBACA
-   ===================================================== */
+
+/* ==================================================
+   QR BERJAYA
+   ================================================== */
 
 function qrBerjaya(
   decodedText,
@@ -310,7 +310,7 @@ function qrBerjaya(
 
 
   /*
-   * ID daripada QR
+   * Ambil ID
    */
 
   const idMurid =
@@ -318,7 +318,7 @@ function qrBerjaya(
 
 
   /*
-   * Paparkan status
+   * Paparan sementara
    */
 
   document.getElementById(
@@ -326,6 +326,7 @@ function qrBerjaya(
   ).innerHTML = `
 
     <div class="card">
+
 
       <div class="success-title">
 
@@ -349,249 +350,233 @@ function qrBerjaya(
 
       </div>
 
+
     </div>
 
   `;
 
 
   /*
-   * Hentikan scanner
+   * Hentikan kamera
    */
 
-  if (scanner) {
+  hentikanScanner();
 
-    scanner
 
-      .clear()
+  /*
+   * Hantar data
+   */
 
-      .catch(function(error) {
+  hantarKeAppsScript(
+    idMurid
+  );
 
-        console.log(
-          "Scanner clear:",
-          error
+}
+
+
+
+/* ==================================================
+   HENTIKAN SCANNER
+   ================================================== */
+
+function hentikanScanner() {
+
+
+  if (!scanner) {
+
+    return Promise.resolve();
+
+  }
+
+
+  return scanner
+    .clear()
+
+    .catch(function(error) {
+
+      console.log(
+        "Ralat clear scanner:",
+        error
+      );
+
+    });
+
+}
+
+
+
+/* ==================================================
+   HANTAR KE APPS SCRIPT
+   MENGGUNAKAN SEND BEACON
+   ================================================== */
+
+function hantarKeAppsScript(
+  idMurid
+) {
+
+
+  /*
+   * Data yang dihantar.
+   *
+   * Hanya ID.
+   * Nama / IC / kelas tidak dihantar
+   * dari browser.
+   */
+
+  const data = {
+
+    id:
+      idMurid
+
+  };
+
+
+  const blob =
+    new Blob(
+
+      [
+        JSON.stringify(data)
+      ],
+
+      {
+        type:
+          "text/plain"
+      }
+
+    );
+
+
+  /*
+   * sendBeacon akan menghantar
+   * POST ke Apps Script.
+   */
+
+  let berjaya =
+    false;
+
+
+  try {
+
+    berjaya =
+      navigator.sendBeacon(
+        API_URL,
+        blob
+      );
+
+  } catch (error) {
+
+    console.error(
+      "sendBeacon error:",
+      error
+    );
+
+  }
+
+
+  console.log(
+    "sendBeacon:",
+    berjaya
+  );
+
+
+  /*
+   * Jika browser menerima
+   * request untuk dihantar.
+   */
+
+  if (berjaya) {
+
+
+    paparMenunggu(
+      idMurid
+    );
+
+
+    /*
+     * Bagi sedikit masa kepada
+     * server menerima request.
+     */
+
+    setTimeout(
+      function() {
+
+        paparBerjaya(
+          idMurid
         );
 
-      });
+      },
+      1200
+    );
+
+
+  } else {
+
+
+    paparRalat(
+      "Browser tidak berjaya menghantar data kepada sistem."
+    );
 
   }
-
-
-  /*
-   * Panggil Apps Script
-   */
-
-  panggilAppsScript(idMurid);
 
 }
 
 
 
-/* =====================================================
-   PANGGIL APPS SCRIPT MENGGUNAKAN JSONP
-   ===================================================== */
+/* ==================================================
+   PAPAR MENUNGGU
+   ================================================== */
 
-function panggilAppsScript(idMurid) {
+function paparMenunggu(
+  idMurid
+) {
 
 
-  /*
-   * Buang script request lama
-   */
+  document.getElementById(
+    "result"
+  ).innerHTML = `
 
-  const scriptLama =
-    document.getElementById(
-      "appsScriptRequest"
-    );
+    <div class="card">
 
 
-  if (scriptLama) {
+      <div class="success-title">
 
-    scriptLama.remove();
-
-  }
-
-
-  /*
-   * Bina URL
-   */
-
-  const url =
-
-    API_URL +
-
-    "?action=rekod" +
-
-    "&id=" +
-    encodeURIComponent(
-      idMurid
-    ) +
-
-    "&callback=terimaRespons" +
-
-    "&t=" +
-    Date.now();
-
-
-  console.log(
-    "REQUEST APPS SCRIPT:",
-    url
-  );
-
-
-  /*
-   * Cipta script tag
-   *
-   * INILAH JSONP
-   */
-
-  const script =
-    document.createElement(
-      "script"
-    );
-
-
-  script.id =
-    "appsScriptRequest";
-
-
-  script.src =
-    url;
-
-
-  /*
-   * Kalau browser gagal
-   * memuatkan request
-   */
-
-  script.onerror =
-    function() {
-
-      console.error(
-        "Gagal memuatkan Apps Script."
-      );
-
-
-      script.remove();
-
-
-      paparRalat(
-        "Tidak dapat berhubung dengan Google Apps Script."
-      );
-
-    };
-
-
-  /*
-   * Masukkan ke halaman
-   */
-
-  document.body.appendChild(
-    script
-  );
-
-}
-
-
-
-/* =====================================================
-   FUNGSI JSONP
-   ===================================================== */
-
-function terimaRespons(data) {
-
-
-  console.log(
-    "RESPONS APPS SCRIPT:",
-    data
-  );
-
-
-  /*
-   * Buang script JSONP
-   */
-
-  const script =
-    document.getElementById(
-      "appsScriptRequest"
-    );
-
-
-  if (script) {
-
-    script.remove();
-
-  }
-
-
-  /*
-   * Paparkan keputusan
-   */
-
-  paparKeputusan(data);
-
-}
-
-
-
-/* =====================================================
-   PAPAR KEPUTUSAN
-   ===================================================== */
-
-function paparKeputusan(data) {
-
-
-  /*
-   * MURID TIDAK DIKENALI
-   */
-
-  if (!data.berjaya) {
-
-
-    document.getElementById(
-      "result"
-    ).innerHTML = `
-
-      <div class="card error">
-
-        <div class="error-title">
-
-          QR TIDAK DIKENALI
-
-        </div>
-
-
-        <div class="info">
-
-          ${escapeHTML(
-            data.mesej ||
-            "Murid tidak dijumpai."
-          )}
-
-        </div>
+        QR BERJAYA DIBACA
 
       </div>
 
 
-      <button
-        onclick="mulaScanner()">
+      <div class="info">
 
-        SCAN SEMULA
+        <strong>ID:</strong><br>
 
-      </button>
+        ${escapeHTML(idMurid)}
 
-    `;
-
-
-    sedangScan = false;
+      </div>
 
 
-    return;
+      <div class="loading">
 
-  }
+        Menghantar rekod...
+
+      </div>
 
 
-  /*
-   * BERJAYA
-   */
+    </div>
+
+  `;
+
+}
+
+
+
+/* ==================================================
+   PAPAR BERJAYA
+   ================================================== */
+
+function paparBerjaya(
+  idMurid
+) {
+
 
   document.getElementById(
     "result"
@@ -602,51 +587,24 @@ function paparKeputusan(data) {
 
       <div class="success-title">
 
-        ✓ REKOD BERJAYA
+        ✓ REKOD BERJAYA DIHANTAR
 
       </div>
 
 
       <div class="info">
 
-        <strong>Nama:</strong><br>
+        <strong>ID Murid:</strong><br>
 
-        ${escapeHTML(
-          data.nama
-        )}
+        ${escapeHTML(idMurid)}
 
       </div>
 
 
       <div class="info">
 
-        <strong>Kelas:</strong><br>
-
-        ${escapeHTML(
-          data.kelas
-        )}
-
-      </div>
-
-
-      <div class="info">
-
-        <strong>Tarikh:</strong><br>
-
-        ${escapeHTML(
-          data.tarikh
-        )}
-
-      </div>
-
-
-      <div class="info">
-
-        <strong>Masa tiba:</strong><br>
-
-        ${escapeHTML(
-          data.masa
-        )}
+        Rekod telah dihantar
+        ke sistem.
 
       </div>
 
@@ -670,11 +628,13 @@ function paparKeputusan(data) {
 
 
 
-/* =====================================================
-   PAPAR RALAT
-   ===================================================== */
+/* ==================================================
+   RALAT
+   ================================================== */
 
-function paparRalat(mesej) {
+function paparRalat(
+  mesej
+) {
 
 
   document.getElementById(
@@ -717,9 +677,9 @@ function paparRalat(mesej) {
 
 
 
-/* =====================================================
+/* ==================================================
    MULAKAN SCANNER
-   ===================================================== */
+   ================================================== */
 
 function mulaScanner() {
 
@@ -739,7 +699,6 @@ function mulaScanner() {
   if (scanner) {
 
     scanner
-
       .clear()
 
       .catch(function(error) {
@@ -793,7 +752,7 @@ function mulaScanner() {
 
 
   /*
-   * Hidupkan kamera
+   * Buka kamera
    */
 
   scanner.start(
@@ -810,8 +769,8 @@ function mulaScanner() {
     function(errorMessage) {
 
       /*
-       * Abaikan ketika sedang
-       * mencari QR.
+       * Abaikan mesej
+       * ketika mencari QR.
        */
 
     }
@@ -821,7 +780,7 @@ function mulaScanner() {
   .then(function() {
 
     console.log(
-      "KAMERA BERJAYA DIMULAKAN."
+      "Kamera berjaya dimulakan."
     );
 
   })
@@ -830,7 +789,7 @@ function mulaScanner() {
 
 
     console.error(
-      "RALAT KAMERA:",
+      "Ralat kamera:",
       error
     );
 
@@ -840,6 +799,7 @@ function mulaScanner() {
     ).innerHTML = `
 
       <div class="card error">
+
 
         <div class="error-title">
 
@@ -857,6 +817,7 @@ function mulaScanner() {
 
         </div>
 
+
       </div>
 
     `;
@@ -867,11 +828,13 @@ function mulaScanner() {
 
 
 
-/* =====================================================
+/* ==================================================
    ESCAPE HTML
-   ===================================================== */
+   ================================================== */
 
-function escapeHTML(text) {
+function escapeHTML(
+  text
+) {
 
 
   const div =
@@ -892,9 +855,9 @@ function escapeHTML(text) {
 
 
 
-/* =====================================================
-   MULA SISTEM
-   ===================================================== */
+/* ==================================================
+   MULA
+   ================================================== */
 
 mulaScanner();
 
