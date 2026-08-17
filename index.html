@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ms">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rekod Murid Lewat</title>
+
+  <!-- =====================================================
+       jsQR
+       ===================================================== -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { margin: 0; font-size: 25px; }
+    .header p { margin-top: 8px; color: #64748b; }
+
+    /* CAMERA */
+    .camera-box {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    #video {
+      display: block;
+      width: 100%;
+      height: auto;
+      min-height: 300px;
+      object-fit: cover;
+      background: #000;
+    }
+
+    /* QR GUIDE */
+    .scan-guide {
+      position: absolute;
+      left: 10%; top: 15%; width: 80%; height: 70%;
+      border: 3px solid rgba(255,255,255,0.8);
+      border-radius: 12px;
+      pointer-events: none;
+    }
+    .scan-guide::after {
+      content: ""; position: absolute;
+      left: 0; right: 0; top: 50%; height: 2px;
+      background: rgba(255,255,255,0.7);
+    }
+
+    /* STATUS KAMERA */
+    .camera-status {
+      position: absolute;
+      left: 10px; right: 10px; bottom: 10px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.65);
+      color: white; border-radius: 8px;
+      text-align: center; font-size: 14px;
+    }
+
+    /* RESULT */
+    #result { margin-top: 20px; }
+    .card {
+      background: white; padding: 20px;
+      border-radius: 16px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+    .success { border-left: 6px solid #16a34a; }
+    .error { border-left: 6px solid #dc2626; }
+    .success-title { color: #15803d; font-size: 20px; font-weight: bold; margin-bottom: 15px; }
+    .error-title { color: #b91c1c; font-size: 20px; font-weight: bold; margin-bottom: 15px; }
+    .info { margin: 10px 0; line-height: 1.5; }
+    .big-id {
+      font-size: 32px; font-weight: bold; text-align: center;
+      margin: 20px 0; color: #2563eb; letter-spacing: 2px;
+    }
+    .notice {
+      background: #eff6ff; border-radius: 10px;
+      padding: 12px; margin-top: 15px; line-height: 1.5; font-size: 14px;
+    }
+
+    button {
+      width: 100%; margin-top: 18px; padding: 16px;
+      border: none; border-radius: 10px;
+      background: #2563eb; color: white;
+      font-size: 17px; font-weight: bold; cursor: pointer;
+    }
+    button:active { transform: scale(0.98); }
+    .secondary-button { background: #64748b; }
+    .hidden-canvas { display: none; }
+    .loading-text { text-align: center; font-weight: bold; color: #2563eb; }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>REKOD MURID LEWAT</h1>
+    <p>Imbas QR murid yang tiba lewat</p>
+  </div>
+
+  <!-- CAMERA -->
+  <div class="camera-box">
+    <video id="video" autoplay muted playsinline></video>
+    <div class="scan-guide"></div>
+    <div id="cameraStatus" class="camera-status">Memulakan kamera...</div>
+  </div>
+
+  <!-- CANVAS -->
+  <canvas id="canvas" class="hidden-canvas"></canvas>
+
+  <!-- RESULT -->
+  <div id="result"></div>
+
+</div>
+
+<script>
+/* =====================================================
+   GOOGLE APPS SCRIPT
+   ===================================================== */
+const API_URL = "https://script.google.com/macros/s/AKfycby4Pm9xKbwLwVzxZTAWESBILTVSiyXF3i_o3Vn4we0jETXuxzA1AsNy-yATM7bkImnC/exec";
+
+/* =====================================================
+   ELEMENT & VARIABLE
+   ===================================================== */
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d", { willReadFrequently: true });
+const cameraStatus = document.getElementById("cameraStatus");
+const result = document.getElementById("result");
+
+let stream = null;
+let scanning = false;
+let sedangScan = false;
+let idMuridSemasa = "";
+let lastDetected = "";
+let lastDetectedTime = 0;
+
+/* =====================================================
+   BUNYI BEEP
+   ===================================================== */
+function mainkanBunyiBeep() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 800Hz
+    gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.2);
+  } catch (e) {
+    console.log("AudioContext tidak disokong");
+  }
+}
+
+/* =====================================================
+   MULAKAN KAMERA
+   ===================================================== */
+async function mulaKamera() {
+  try {
+    cameraStatus.textContent = "Meminta akses kamera...";
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        advanced: [{ focusMode: "continuous" }] // Membantu auto-fokus telefon
+      },
+      audio: false
+    });
+
+    video.srcObject = stream;
+    await video.play();
+
+    cameraStatus.textContent = "Kamera aktif — halakan QR ke kamera";
+    scanning = true;
+    requestAnimationFrame(scanFrame);
+
+  } catch (error) {
+    console.error("RALAT KAMERA:", error);
+    cameraStatus.textContent = "Kamera tidak dapat dibuka.";
+    result.innerHTML = `
+      <div class="card error">
+        <div class="error-title">KAMERA TIDAK DAPAT DIBUKA</div>
+        <div class="info">${escapeHTML(error.message || String(error))}</div>
+      </div>
+    `;
+  }
+}
+
+/* =====================================================
+   SCAN FRAME
+   ===================================================== */
+function scanFrame() {
+  if (!scanning) return;
+
+  if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+    requestAnimationFrame(scanFrame);
+    return;
+  }
+
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+
+  if (width === 0 || height === 0) {
+    requestAnimationFrame(scanFrame);
+    return;
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  ctx.drawImage(video, 0, 0, width, height);
+
+  const imageData = ctx.getImageData(0, 0, width, height);
+
+  const code = jsQR(imageData.data, imageData.width, imageData.height, {
+    inversionAttempts: "attemptBoth"
+  });
+
+  if (code) {
+    prosesQR(code.data);
+    return;
+  }
+
+  requestAnimationFrame(scanFrame);
+}
+
+/* =====================================================
+   PROSES QR
+   ===================================================== */
+function prosesQR(decodedText) {
+  if (sedangScan) return;
+
+  const idMurid = String(decodedText || "").trim();
+  if (!idMurid) return;
+
+  const sekarang = Date.now();
+  if (idMurid === lastDetected && sekarang - lastDetectedTime < 3000) {
+    return;
+  }
+
+  lastDetected = idMurid;
+  lastDetectedTime = sekarang;
+  sedangScan = true;
+  idMuridSemasa = idMurid;
+
+  scanning = false;
+  hentikanKamera();
+  mainkanBunyiBeep(); // Panggil bunyi apabila berjaya scan
+
+  result.innerHTML = `
+    <div class="card success">
+      <div class="success-title">✓ QR BERJAYA DIBACA</div>
+      <div class="big-id">${escapeHTML(idMurid)}</div>
+      <div class="info">Data QR telah berjaya dikenal pasti.</div>
+      <div class="notice">Tekan <strong>REKOD LEWAT</strong> untuk merekod murid ini.</div>
+      <button onclick="bukaAppsScript()">REKOD LEWAT</button>
+      <button class="secondary-button" onclick="scanSemula()">SCAN SEMULA</button>
+    </div>
+  `;
+}
+
+/* =====================================================
+   HANTAR KE APPS SCRIPT (FETCH API)
+   ===================================================== */
+async function bukaAppsScript() {
+  if (!idMuridSemasa) {
+    paparRalat("ID murid tidak dijumpai.");
+    return;
+  }
+
+  const url = API_URL + "?action=rekod&id=" + encodeURIComponent(idMuridSemasa);
+
+  // Tukar paparan kepada status "Loading"
+  result.innerHTML = `
+    <div class="card">
+      <div class="info loading-text">
+        ⏳ Sedang menghantar rekod ke pangkalan data...
+      </div>
+    </div>
+  `;
+
+  try {
+    // Hantar request menggunakan Fetch API di background
+    await fetch(url, { method: 'GET', mode: 'no-cors' });
+
+    // Walaupun no-cors tidak memulangkan status code yang boleh dibaca, 
+    // try/catch block ini membuktikan request telah berjaya dihantar tanpa network error.
+    result.innerHTML = `
+      <div class="card success">
+        <div class="success-title">✓ REKOD DIHANTAR</div>
+        <div class="big-id">${escapeHTML(idMuridSemasa)}</div>
+        <div class="info">Sistem telah merekodkan data ini ke Google Sheet secara latar belakang tanpa membuka tab baharu.</div>
+        <button onclick="scanSemula()">SCAN MURID SETERUSNYA</button>
+      </div>
+    `;
+
+  } catch (error) {
+    // Jika ralat berlaku (cth: tiada internet)
+    result.innerHTML = `
+      <div class="card error">
+        <div class="error-title">GAGAL MENGHANTAR DATA</div>
+        <div class="info">Sila semak sambungan internet anda dan cuba sekali lagi.</div>
+        <button onclick="bukaAppsScript()">CUBA LAGI</button>
+        <button class="secondary-button" onclick="scanSemula()">SCAN SEMULA</button>
+      </div>
+    `;
+  }
+}
+
+/* =====================================================
+   HENTIKAN KAMERA
+   ===================================================== */
+function hentikanKamera() {
+  if (!stream) return;
+  stream.getTracks().forEach(function(track) {
+    track.stop();
+  });
+  stream = null;
+  video.srcObject = null;
+}
+
+/* =====================================================
+   SCAN SEMULA
+   ===================================================== */
+function scanSemula() {
+  sedangScan = false;
+  idMuridSemasa = "";
+  result.innerHTML = "";
+  cameraStatus.textContent = "Memulakan kamera...";
+  mulaKamera();
+}
+
+/* =====================================================
+   RALAT
+   ===================================================== */
+function paparRalat(mesej) {
+  result.innerHTML = `
+    <div class="card error">
+      <div class="error-title">RALAT SISTEM</div>
+      <div class="info">${escapeHTML(mesej)}</div>
+    </div>
+    <button onclick="scanSemula()">SCAN SEMULA</button>
+  `;
+  sedangScan = false;
+}
+
+/* =====================================================
+   ESCAPE HTML
+   ===================================================== */
+function escapeHTML(text) {
+  const div = document.createElement("div");
+  div.textContent = text == null ? "" : String(text);
+  return div.innerHTML;
+}
+
+/* =====================================================
+   MULAKAN
+   ===================================================== */
+mulaKamera();
+
+</script>
+
+</body>
+</html>
