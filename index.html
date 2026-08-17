@@ -12,10 +12,10 @@
 
 
   <!-- =====================================================
-       QR SCANNER
+       jsQR
        ===================================================== -->
 
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js">
   </script>
 
 
@@ -82,40 +82,123 @@
     }
 
 
-    #reader {
+    /*
+     * CAMERA
+     */
 
-      background: white;
+    .camera-box {
 
-      padding: 10px;
+      position: relative;
+
+      width: 100%;
+
+      background: #000;
 
       border-radius: 16px;
 
+      overflow: hidden;
+
       box-shadow:
         0 4px 15px
-        rgba(0, 0, 0, 0.08);
+        rgba(0, 0, 0, 0.15);
 
-      overflow: hidden;
+    }
+
+
+    #video {
+
+      display: block;
+
+      width: 100%;
+
+      height: auto;
+
+      min-height: 300px;
+
+      object-fit: cover;
+
+      background: #000;
 
     }
 
 
     /*
-     * Pastikan video kamera tidak
-     * dipaksa menjadi bentuk pelik.
+     * QR GUIDE
      */
 
-    #reader video {
+    .scan-guide {
 
-      width: 100% !important;
+      position: absolute;
 
-      height: auto !important;
+      left: 10%;
 
-      object-fit: cover;
+      top: 15%;
 
-      border-radius: 10px;
+      width: 80%;
+
+      height: 70%;
+
+      border: 3px solid rgba(255,255,255,0.8);
+
+      border-radius: 12px;
+
+      pointer-events: none;
 
     }
 
+
+    .scan-guide::after {
+
+      content: "";
+
+      position: absolute;
+
+      left: 0;
+
+      right: 0;
+
+      top: 50%;
+
+      height: 2px;
+
+      background: rgba(255,255,255,0.7);
+
+    }
+
+
+    /*
+     * STATUS KAMERA
+     */
+
+    .camera-status {
+
+      position: absolute;
+
+      left: 10px;
+
+      right: 10px;
+
+      bottom: 10px;
+
+      padding: 8px 12px;
+
+      background:
+        rgba(0,0,0,0.65);
+
+      color: white;
+
+      border-radius: 8px;
+
+      text-align: center;
+
+      font-size: 14px;
+
+    }
+
+
+    /*
+     * RESULT
+     */
 
     #result {
 
@@ -263,11 +346,9 @@
     }
 
 
-    .loading {
+    .hidden-canvas {
 
-      text-align: center;
-
-      padding: 20px;
+      display: none;
 
     }
 
@@ -276,16 +357,21 @@
 </head>
 
 
+
 <body>
 
 
 <div class="container">
 
 
+  <!-- =====================================================
+       HEADER
+       ===================================================== -->
+
   <div class="header">
 
     <h1>
-      REKOD MURID LEWAT (v2.3)
+      REKOD MURID LEWAT (Versi sakit hati)
     </h1>
 
     <p>
@@ -299,7 +385,38 @@
        CAMERA
        ===================================================== -->
 
-  <div id="reader"></div>
+  <div class="camera-box">
+
+    <video
+      id="video"
+      autoplay
+      muted
+      playsinline>
+    </video>
+
+
+    <div class="scan-guide"></div>
+
+
+    <div
+      id="cameraStatus"
+      class="camera-status">
+
+      Memulakan kamera...
+
+    </div>
+
+  </div>
+
+
+  <!-- =====================================================
+       CANVAS
+       ===================================================== -->
+
+  <canvas
+    id="canvas"
+    class="hidden-canvas">
+  </canvas>
 
 
   <!-- =====================================================
@@ -325,53 +442,371 @@ const API_URL =
 
 
 /* =====================================================
+   ELEMENT
+   ===================================================== */
+
+const video =
+  document.getElementById("video");
+
+
+const canvas =
+  document.getElementById("canvas");
+
+
+const ctx =
+  canvas.getContext("2d", {
+    willReadFrequently: true
+  });
+
+
+const cameraStatus =
+  document.getElementById(
+    "cameraStatus"
+  );
+
+
+const result =
+  document.getElementById(
+    "result"
+  );
+
+
+/* =====================================================
    VARIABLE
    ===================================================== */
 
-let scanner = null;
+let stream = null;
+
+let scanning = false;
 
 let sedangScan = false;
 
 let idMuridSemasa = "";
 
 
+/*
+ * Untuk mengelakkan QR sama
+ * dibaca berkali-kali.
+ */
+
+let lastDetected = "";
+
+let lastDetectedTime = 0;
+
+
 
 /* =====================================================
-   QR BERJAYA
+   MULAKAN KAMERA
    ===================================================== */
 
-function qrBerjaya(
-  decodedText,
-  decodedResult
-) {
+async function mulaKamera() {
 
 
-  console.log(
-    "================================"
-  );
+  try {
 
-  console.log(
-    "QR BERJAYA DIBACA"
-  );
 
-  console.log(
-    "Data:",
-    decodedText
-  );
+    cameraStatus.textContent =
+      "Meminta akses kamera...";
 
-  console.log(
-    "Result:",
-    decodedResult
-  );
 
-  console.log(
-    "================================"
+    /*
+     * Kamera belakang.
+     *
+     * Kita tidak menetapkan resolution
+     * secara terlalu ketat kerana setiap
+     * telefon berbeza.
+     */
+
+    stream =
+      await navigator.mediaDevices.getUserMedia({
+
+        video: {
+
+          facingMode: {
+            ideal: "environment"
+          },
+
+          width: {
+            ideal: 1280
+          },
+
+          height: {
+            ideal: 720
+          }
+
+        },
+
+        audio: false
+
+      });
+
+
+    /*
+     * Sambungkan stream kepada video.
+     */
+
+    video.srcObject =
+      stream;
+
+
+    await video.play();
+
+
+    /*
+     * Pastikan saiz video sudah tersedia.
+     */
+
+    cameraStatus.textContent =
+      "Kamera aktif — halakan QR ke kamera";
+
+
+    scanning = true;
+
+
+    /*
+     * Mulakan loop scanner.
+     */
+
+    requestAnimationFrame(
+      scanFrame
+    );
+
+
+  }
+
+  catch (error) {
+
+
+    console.error(
+      "RALAT KAMERA:",
+      error
+    );
+
+
+    cameraStatus.textContent =
+      "Kamera tidak dapat dibuka.";
+
+
+    result.innerHTML = `
+
+      <div class="card error">
+
+
+        <div class="error-title">
+
+          KAMERA TIDAK DAPAT DIBUKA
+
+        </div>
+
+
+        <div class="info">
+
+          ${escapeHTML(
+            error.message ||
+            String(error)
+          )}
+
+        </div>
+
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+
+
+/* =====================================================
+   SCAN FRAME
+   ===================================================== */
+
+function scanFrame() {
+
+
+  /*
+   * Jika scanning dihentikan,
+   * jangan teruskan loop.
+   */
+
+  if (!scanning) {
+
+    return;
+
+  }
+
+
+  /*
+   * Video belum mempunyai frame.
+   */
+
+  if (
+    video.readyState !==
+    video.HAVE_ENOUGH_DATA
+  ) {
+
+    requestAnimationFrame(
+      scanFrame
+    );
+
+    return;
+
+  }
+
+
+  const width =
+    video.videoWidth;
+
+
+  const height =
+    video.videoHeight;
+
+
+  if (
+    width === 0 ||
+    height === 0
+  ) {
+
+    requestAnimationFrame(
+      scanFrame
+    );
+
+    return;
+
+  }
+
+
+  /*
+   * Gunakan SELURUH frame kamera.
+   *
+   * Tidak ada qrbox.
+   * Tidak perlu QR tepat di tengah.
+   */
+
+  canvas.width =
+    width;
+
+
+  canvas.height =
+    height;
+
+
+  ctx.drawImage(
+
+    video,
+
+    0,
+    0,
+
+    width,
+    height
+
   );
 
 
   /*
-   * Jangan proses QR kedua
-   * selepas QR pertama berjaya.
+   * Ambil pixel image.
+   */
+
+  const imageData =
+    ctx.getImageData(
+
+      0,
+      0,
+
+      width,
+      height
+
+    );
+
+
+  /*
+   * Cuba decode QR.
+   *
+   * inversionAttempts attemptBoth
+   * membantu keadaan QR yang kontrasnya
+   * pelik / terbalik.
+   */
+
+  const code =
+    jsQR(
+
+      imageData.data,
+
+      imageData.width,
+
+      imageData.height,
+
+      {
+
+        inversionAttempts:
+          "attemptBoth"
+
+      }
+
+    );
+
+
+  /*
+   * QR dijumpai.
+   */
+
+  if (code) {
+
+
+    console.log(
+      "================================"
+    );
+
+    console.log(
+      "QR DIKESAN!"
+    );
+
+    console.log(
+      "DATA:",
+      code.data
+    );
+
+    console.log(
+      "================================"
+    );
+
+
+    prosesQR(
+      code.data
+    );
+
+
+    return;
+
+  }
+
+
+  /*
+   * Belum jumpa QR.
+   */
+
+  requestAnimationFrame(
+    scanFrame
+  );
+
+}
+
+
+
+/* =====================================================
+   PROSES QR
+   ===================================================== */
+
+function prosesQR(
+  decodedText
+) {
+
+
+  /*
+   * Elakkan scan kedua.
    */
 
   if (sedangScan) {
@@ -381,41 +816,73 @@ function qrBerjaya(
   }
 
 
-  sedangScan = true;
-
-
-  /*
-   * Ambil ID
-   */
-
   const idMurid =
-    String(decodedText).trim();
+    String(
+      decodedText || ""
+    ).trim();
 
-
-  /*
-   * Pastikan bukan kosong
-   */
 
   if (!idMurid) {
-
-    sedangScan = false;
 
     return;
 
   }
 
 
+  /*
+   * Elakkan QR yang sama
+   * dibaca berulang kali.
+   */
+
+  const sekarang =
+    Date.now();
+
+
+  if (
+
+    idMurid ===
+      lastDetected &&
+
+    sekarang -
+      lastDetectedTime <
+      3000
+
+  ) {
+
+    return;
+
+  }
+
+
+  lastDetected =
+    idMurid;
+
+
+  lastDetectedTime =
+    sekarang;
+
+
+  sedangScan = true;
+
   idMuridSemasa =
     idMurid;
 
 
   /*
-   * Papar keputusan
+   * Hentikan scanner.
    */
 
-  document.getElementById(
-    "result"
-  ).innerHTML = `
+  scanning = false;
+
+
+  hentikanKamera();
+
+
+  /*
+   * Paparkan QR yang dibaca.
+   */
+
+  result.innerHTML = `
 
     <div class="card success">
 
@@ -436,7 +903,8 @@ function qrBerjaya(
 
       <div class="info">
 
-        ID murid berjaya dibaca.
+        Data QR telah berjaya
+        dikenal pasti.
 
       </div>
 
@@ -444,8 +912,7 @@ function qrBerjaya(
       <div class="notice">
 
         Tekan <strong>REKOD LEWAT</strong>
-        untuk menyimpan rekod murid
-        ke dalam sistem.
+        untuk merekod murid ini.
 
       </div>
 
@@ -460,7 +927,7 @@ function qrBerjaya(
 
       <button
         class="secondary-button"
-        onclick="mulaScanner()">
+        onclick="scanSemula()">
 
         SCAN SEMULA
 
@@ -470,13 +937,6 @@ function qrBerjaya(
     </div>
 
   `;
-
-
-  /*
-   * Sekarang baru hentikan kamera.
-   */
-
-  hentikanScanner();
 
 }
 
@@ -501,8 +961,8 @@ function bukaAppsScript() {
 
 
   /*
-   * URL yang sama dengan ujian
-   * yang sudah terbukti berjaya.
+   * URL yang kita sudah buktikan
+   * boleh merekod.
    */
 
   const url =
@@ -526,6 +986,8 @@ function bukaAppsScript() {
 
   /*
    * Buka tab baharu.
+   *
+   * Tab GitHub kekal.
    */
 
   const tab =
@@ -536,15 +998,13 @@ function bukaAppsScript() {
 
 
   /*
-   * Jika popup berjaya.
+   * Popup berjaya.
    */
 
   if (tab) {
 
 
-    document.getElementById(
-      "result"
-    ).innerHTML = `
+    result.innerHTML = `
 
       <div class="card success">
 
@@ -575,19 +1035,14 @@ function bukaAppsScript() {
 
         <div class="notice">
 
-          Rekod murid telah dihantar
-          ke Google Sheet.
-
-          <br><br>
-
-          Kembali ke halaman scanner
-          untuk murid seterusnya.
+          Rekod murid sedang
+          dimasukkan ke Google Sheet.
 
         </div>
 
 
         <button
-          onclick="mulaScanner()">
+          onclick="scanSemula()">
 
           SCAN MURID SETERUSNYA
 
@@ -608,9 +1063,7 @@ function bukaAppsScript() {
      * Popup disekat.
      */
 
-    document.getElementById(
-      "result"
-    ).innerHTML = `
+    result.innerHTML = `
 
       <div class="card error">
 
@@ -624,8 +1077,7 @@ function bukaAppsScript() {
 
         <div class="info">
 
-          Browser menyekat pembukaan
-          tab baharu.
+          Browser menyekat tab baharu.
 
         </div>
 
@@ -640,7 +1092,7 @@ function bukaAppsScript() {
 
         <button
           class="secondary-button"
-          onclick="mulaScanner()">
+          onclick="scanSemula()">
 
           SCAN SEMULA
 
@@ -658,7 +1110,7 @@ function bukaAppsScript() {
 
 
 /* =====================================================
-   BUKA APPS SCRIPT SECARA MANUAL
+   BUKA APPS SCRIPT MANUAL
    ===================================================== */
 
 function bukaAppsScriptManual() {
@@ -694,58 +1146,46 @@ function bukaAppsScriptManual() {
 
 
 /* =====================================================
-   HENTIKAN SCANNER
+   HENTIKAN KAMERA
    ===================================================== */
 
-function hentikanScanner() {
+function hentikanKamera() {
 
 
-  if (!scanner) {
+  if (!stream) {
 
     return;
 
   }
 
 
-  scanner
+  stream
+    .getTracks()
+    .forEach(function(track) {
 
-    .clear()
-
-    .then(function() {
-
-      console.log(
-        "Scanner dihentikan."
-      );
-
-    })
-
-    .catch(function(error) {
-
-      console.log(
-        "Scanner clear:",
-        error
-      );
+      track.stop();
 
     });
+
+
+  stream = null;
+
+
+  video.srcObject = null;
 
 }
 
 
 
 /* =====================================================
-   MULAKAN SCANNER
+   SCAN SEMULA
    ===================================================== */
 
-function mulaScanner() {
-
-
-  console.log(
-    "Memulakan scanner..."
-  );
+function scanSemula() {
 
 
   /*
-   * Reset
+   * Reset.
    */
 
   sedangScan = false;
@@ -753,244 +1193,18 @@ function mulaScanner() {
   idMuridSemasa = "";
 
 
-  document.getElementById(
-    "result"
-  ).innerHTML = "";
+  result.innerHTML = "";
+
+
+  cameraStatus.textContent =
+    "Memulakan kamera...";
 
 
   /*
-   * Kalau scanner lama masih ada,
-   * cuba bersihkan dahulu.
+   * Hidupkan semula.
    */
 
-  if (scanner) {
-
-    scanner
-
-      .clear()
-
-      .catch(function(error) {
-
-        console.log(
-          "Scanner lama:",
-          error
-        );
-
-      });
-
-  }
-
-
-  /*
-   * Bina scanner baharu.
-   */
-
-  scanner =
-    new Html5Qrcode(
-      "reader"
-    );
-
-
-  /* =================================================
-     KONFIGURASI SCANNER
-     ================================================= */
-
-
-  /*
-   * QR BOX DINAMIK
-   *
-   * Gunakan 75% daripada kawasan
-   * kamera.
-   */
-
-  function qrboxFunction(
-    viewfinderWidth,
-    viewfinderHeight
-  ) {
-
-
-    const minEdge =
-      Math.min(
-        viewfinderWidth,
-        viewfinderHeight
-      );
-
-
-    /*
-     * 75% kawasan kamera.
-     *
-     * Lebih luas daripada 300x300.
-     */
-
-    const size =
-      Math.floor(
-        minEdge * 0.75
-      );
-
-
-    return {
-
-      width:
-        size,
-
-      height:
-        size
-
-    };
-
-  }
-
-
-  const config = {
-
-    /*
-     * 10-15 fps sudah memadai.
-     *
-     * Terlalu tinggi boleh membebankan
-     * telefon.
-     */
-
-    fps: 15,
-
-
-    /*
-     * Kawasan scan dinamik.
-     */
-
-    qrbox:
-      qrboxFunction,
-
-
-    /*
-     * Jangan paksa 1:1.
-     *
-     * Kamera telefon biasanya 4:3 atau 16:9.
-     */
-
-    aspectRatio: 4 / 3,
-
-
-    /*
-     * Benarkan QR yang terbalik /
-     * mirrored.
-     */
-
-    disableFlip: false,
-
-
-    /*
-     * Hanya QR.
-     */
-
-    formatsToSupport: [
-
-      Html5QrcodeSupportedFormats
-        .QR_CODE
-
-    ],
-
-
-    /*
-     * Jika browser menyokong
-     * BarcodeDetector, gunakan.
-     */
-
-    experimentalFeatures: {
-
-      useBarCodeDetectorIfSupported:
-        true
-
-    }
-
-  };
-
-
-  /*
-   * Mulakan kamera.
-   */
-
-  scanner.start(
-
-    {
-      facingMode:
-        "environment"
-    },
-
-    config,
-
-    qrBerjaya,
-
-    function(errorMessage) {
-
-      /*
-       * Jangan paparkan mesej
-       * decoder setiap frame.
-       *
-       * Ia normal ketika scanner
-       * sedang mencari QR.
-       */
-
-    }
-
-  )
-
-  .then(function() {
-
-    console.log(
-      "================================"
-    );
-
-    console.log(
-      "KAMERA BERJAYA DIMULAKAN"
-    );
-
-    console.log(
-      "================================"
-    );
-
-  })
-
-  .catch(function(error) {
-
-
-    console.error(
-      "RALAT KAMERA:",
-      error
-    );
-
-
-    document.getElementById(
-      "result"
-    ).innerHTML = `
-
-      <div class="card error">
-
-
-        <div class="error-title">
-
-          KAMERA TIDAK DAPAT DIBUKA
-
-        </div>
-
-
-        <div class="info">
-
-          ${escapeHTML(
-            error.message ||
-            String(error)
-          )}
-
-        </div>
-
-
-      </div>
-
-    `;
-
-
-    sedangScan = false;
-
-  });
+  mulaKamera();
 
 }
 
@@ -1005,9 +1219,7 @@ function paparRalat(
 ) {
 
 
-  document.getElementById(
-    "result"
-  ).innerHTML = `
+  result.innerHTML = `
 
     <div class="card error">
 
@@ -1030,7 +1242,7 @@ function paparRalat(
 
 
     <button
-      onclick="mulaScanner()">
+      onclick="scanSemula()">
 
       SCAN SEMULA
 
@@ -1073,10 +1285,10 @@ function escapeHTML(
 
 
 /* =====================================================
-   MULA
+   MULAKAN
    ===================================================== */
 
-mulaScanner();
+mulaKamera();
 
 
 </script>
