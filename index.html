@@ -1,61 +1,111 @@
 <!DOCTYPE html>
 <html lang="ms">
+
 <head>
+
   <meta charset="UTF-8">
+
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0">
 
   <title>Rekod Murid Lewat</title>
 
-  <!-- QR Scanner -->
+
+  <!-- =========================================
+       QR SCANNER
+       ========================================= -->
+
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
   </script>
 
+
   <style>
+
     * {
       box-sizing: border-box;
     }
+
+
     body {
+
       margin: 0;
+
       font-family:
         Arial,
         Helvetica,
         sans-serif;
-      background:
-        #f1f5f9;
+
+      background: #f1f5f9;
+
       color: #1e293b;
+
     }
+
 
     .container {
+
       width: 100%;
+
       max-width: 520px;
+
       margin: auto;
+
       padding: 20px;
+
     }
+
 
     .header {
+
       text-align: center;
+
       margin-bottom: 20px;
+
     }
+
 
     .header h1 {
+
       margin: 0;
+
       font-size: 25px;
+
     }
+
 
     .header p {
+
       margin-top: 8px;
+
       color: #64748b;
+
     }
 
+
+    /* =========================================
+       QR READER
+       ========================================= */
+
     #reader {
+
       background: white;
+
       padding: 10px;
+
       border-radius: 16px;
+
       box-shadow:
         0 4px 15px
-        rgba(0,0,0,0.08);
+        rgba(0, 0, 0, 0.08);
+
+      overflow: hidden;
+
     }
+
+
+    /* =========================================
+       RESULT
+       ========================================= */
 
     #result {
 
@@ -74,7 +124,7 @@
 
       box-shadow:
         0 4px 15px
-        rgba(0,0,0,0.08);
+        rgba(0, 0, 0, 0.08);
 
     }
 
@@ -130,6 +180,19 @@
     }
 
 
+    .loading {
+
+      text-align: center;
+
+      padding: 20px;
+
+    }
+
+
+    /* =========================================
+       BUTTON
+       ========================================= */
+
     button {
 
       width: 100%;
@@ -162,14 +225,6 @@
     }
 
 
-    .loading {
-
-      text-align: center;
-
-      padding: 20px;
-
-    }
-
   </style>
 
 </head>
@@ -181,9 +236,15 @@
 <div class="container">
 
 
+  <!-- =========================================
+       HEADER
+       ========================================= -->
+
   <div class="header">
 
-    <h1>REKOD MURID LEWAT</h1>
+    <h1>
+      REKOD MURID LEWAT
+    </h1>
 
     <p>
       Imbas QR murid yang tiba lewat
@@ -192,8 +253,16 @@
   </div>
 
 
+  <!-- =========================================
+       QR SCANNER
+       ========================================= -->
+
   <div id="reader"></div>
 
+
+  <!-- =========================================
+       RESULT
+       ========================================= -->
 
   <div id="result"></div>
 
@@ -205,15 +274,17 @@
 <script>
 
 
-/*
-====================================================
- MASUKKAN URL WEB APP GOOGLE APPS SCRIPT DI SINI
-====================================================
-*/
+/* =================================================
+   URL GOOGLE APPS SCRIPT
+   ================================================= */
 
 const API_URL =
   "https://script.google.com/macros/s/AKfycbwIFOIdPcUo1VzgE_mm_tEGNYJDYUtVVkXXOEnz9yK3lrr-F2sJJg3Qk1PgaQIdIvte/exec";
 
+
+/* =================================================
+   VARIABLE SCANNER
+   ================================================= */
 
 let scanner = null;
 
@@ -221,28 +292,54 @@ let sedangScan = false;
 
 
 
-/*
-====================================================
- QR BERJAYA DIBACA
-====================================================
-*/
+/* =================================================
+   QR BERJAYA DIBACA
+   ================================================= */
+
 function qrBerjaya(decodedText, decodedResult) {
 
-  console.log("QR BERJAYA DIBACA:");
-  console.log(decodedText);
-  console.log(decodedResult);
+
+  console.log(
+    "QR BERJAYA DIBACA:",
+    decodedText
+  );
+
+
+  console.log(
+    "MAKLUMAT QR:",
+    decodedResult
+  );
+
+
+  /*
+   * Elakkan scan berganda
+   */
 
   if (sedangScan) {
+
     return;
+
   }
+
 
   sedangScan = true;
 
-  const idMurid = decodedText.trim();
 
   /*
-   * PAPARKAN APA YANG SCANNER BACA
-   * sebelum panggil Google Apps Script
+   * Ambil ID daripada QR
+   *
+   * Contoh:
+   *
+   * M001
+   * M002
+   */
+
+  const idMurid =
+    decodedText.trim();
+
+
+  /*
+   * Paparkan bahawa QR telah dibaca
    */
 
   document.getElementById("result").innerHTML = `
@@ -250,16 +347,26 @@ function qrBerjaya(decodedText, decodedResult) {
     <div class="card">
 
       <div class="success-title">
+
         QR BERJAYA DIBACA
+
       </div>
 
+
       <div class="info">
-        <strong>Data QR:</strong>
+
+        <strong>Data QR:</strong><br>
+
         ${escapeHTML(idMurid)}
+
       </div>
 
+
       <div class="info">
-        Sedang mendapatkan maklumat murid...
+
+        Sedang mendapatkan
+        maklumat murid...
+
       </div>
 
     </div>
@@ -268,20 +375,27 @@ function qrBerjaya(decodedText, decodedResult) {
 
 
   /*
-   * Hentikan scanner
+   * Hentikan scanner sementara
    */
 
   if (scanner) {
 
     scanner.clear()
+
       .then(function() {
 
-        console.log("Scanner dihentikan.");
+        console.log(
+          "Scanner dihentikan."
+        );
 
       })
+
       .catch(function(error) {
 
-        console.log("Gagal hentikan scanner:", error);
+        console.log(
+          "Gagal menghentikan scanner:",
+          error
+        );
 
       });
 
@@ -289,24 +403,24 @@ function qrBerjaya(decodedText, decodedResult) {
 
 
   /*
-   * Panggil Apps Script
+   * Hantar ID kepada Apps Script
    */
 
   panggilAPI(idMurid);
 
 }
 
-/*
-====================================================
- PANGGIL GOOGLE APPS SCRIPT
-====================================================
-*/
+
+
+/* =================================================
+   PANGGIL GOOGLE APPS SCRIPT
+   ================================================= */
 
 function panggilAPI(idMurid) {
 
 
   /*
-   * JSONP callback
+   * Nama callback unik
    */
 
   const callbackName =
@@ -315,23 +429,40 @@ function panggilAPI(idMurid) {
 
 
   /*
-   * Fungsi callback
+   * Fungsi callback JSONP
    */
 
   window[callbackName] =
     function(data) {
 
 
+      console.log(
+        "RESPON APPS SCRIPT:",
+        data
+      );
+
+
       /*
-       * Buang script
+       * Buang script JSONP
        */
 
-      if (script.parentNode) {
+      if (
+        window.currentApiScript &&
+        window.currentApiScript.parentNode
+      ) {
 
-        script.parentNode.removeChild(script);
+        window.currentApiScript
+          .parentNode
+          .removeChild(
+            window.currentApiScript
+          );
 
       }
 
+
+      /*
+       * Padam callback
+       */
 
       delete window[callbackName];
 
@@ -346,7 +477,7 @@ function panggilAPI(idMurid) {
 
 
   /*
-   * URL API
+   * Bina URL API
    */
 
   const url =
@@ -358,6 +489,12 @@ function panggilAPI(idMurid) {
     callbackName;
 
 
+  console.log(
+    "PANGGIL API:",
+    url
+  );
+
+
   /*
    * Cipta script
    */
@@ -366,15 +503,42 @@ function panggilAPI(idMurid) {
     document.createElement("script");
 
 
+  /*
+   * Simpan supaya boleh dibuang nanti
+   */
+
+  window.currentApiScript =
+    script;
+
+
+  /*
+   * URL API
+
+   */
+
   script.src = url;
 
+
+  /*
+   * Jika API gagal
+
+   */
 
   script.onerror =
     function() {
 
-      if (script.parentNode) {
 
-        script.parentNode.removeChild(script);
+      console.error(
+        "API tidak dapat dihubungi."
+      );
+
+
+      if (
+        script.parentNode
+      ) {
+
+        script.parentNode
+          .removeChild(script);
 
       }
 
@@ -383,26 +547,34 @@ function panggilAPI(idMurid) {
 
 
       paparRalat(
-        "Tidak dapat berhubung dengan sistem."
+        "Tidak dapat berhubung dengan sistem Google Apps Script."
       );
 
     };
 
 
-  document.body.appendChild(script);
+  /*
+   * Masukkan script ke halaman
+   */
+
+  document.body.appendChild(
+    script
+  );
 
 }
 
 
 
-/*
-====================================================
- PAPAR KEPUTUSAN
-====================================================
-*/
+/* =================================================
+   PAPAR KEPUTUSAN
+   ================================================= */
 
 function paparKeputusan(data) {
 
+
+  /*
+   * Jika murid tidak dijumpai
+   */
 
   if (!data.berjaya) {
 
@@ -417,16 +589,21 @@ function paparKeputusan(data) {
 
         </div>
 
+
         <div class="info">
 
-          ${escapeHTML(data.mesej)}
+          ${escapeHTML(
+            data.mesej ||
+            "Murid tidak dijumpai."
+          )}
 
         </div>
 
       </div>
 
 
-      <button onclick="mulaScanner()">
+      <button
+        onclick="mulaScanner()">
 
         SCAN SEMULA
 
@@ -444,12 +621,13 @@ function paparKeputusan(data) {
 
 
   /*
-   * Rekod berjaya
+   * Jika berjaya
    */
 
   document.getElementById("result").innerHTML = `
 
     <div class="card success">
+
 
       <div class="success-title">
 
@@ -462,7 +640,9 @@ function paparKeputusan(data) {
 
         <strong>Nama:</strong><br>
 
-        ${escapeHTML(data.nama)}
+        ${escapeHTML(
+          data.nama
+        )}
 
       </div>
 
@@ -471,7 +651,9 @@ function paparKeputusan(data) {
 
         <strong>No. IC:</strong><br>
 
-        ${escapeHTML(String(data.ic))}
+        ${escapeHTML(
+          String(data.ic)
+        )}
 
       </div>
 
@@ -480,7 +662,9 @@ function paparKeputusan(data) {
 
         <strong>Kelas:</strong><br>
 
-        ${escapeHTML(data.kelas)}
+        ${escapeHTML(
+          data.kelas
+        )}
 
       </div>
 
@@ -489,7 +673,9 @@ function paparKeputusan(data) {
 
         <strong>Tarikh:</strong><br>
 
-        ${escapeHTML(data.tarikh)}
+        ${escapeHTML(
+          data.tarikh
+        )}
 
       </div>
 
@@ -498,7 +684,9 @@ function paparKeputusan(data) {
 
         <strong>Masa tiba:</strong><br>
 
-        ${escapeHTML(data.masa)}
+        ${escapeHTML(
+          data.masa
+        )}
 
       </div>
 
@@ -506,7 +694,8 @@ function paparKeputusan(data) {
     </div>
 
 
-    <button onclick="mulaScanner()">
+    <button
+      onclick="mulaScanner()">
 
       SCAN MURID SETERUSNYA
 
@@ -521,11 +710,9 @@ function paparKeputusan(data) {
 
 
 
-/*
-====================================================
- ERROR
-====================================================
-*/
+/* =================================================
+   PAPAR RALAT
+   ================================================= */
 
 function paparRalat(mesej) {
 
@@ -533,6 +720,7 @@ function paparRalat(mesej) {
   document.getElementById("result").innerHTML = `
 
     <div class="card error">
+
 
       <div class="error-title">
 
@@ -547,10 +735,12 @@ function paparRalat(mesej) {
 
       </div>
 
+
     </div>
 
 
-    <button onclick="mulaScanner()">
+    <button
+      onclick="mulaScanner()">
 
       CUBA SEMULA
 
@@ -565,76 +755,142 @@ function paparRalat(mesej) {
 
 
 
-/*
-====================================================
- MULAKAN SCANNER
-====================================================
-*/
+/* =================================================
+   MULAKAN SCANNER
+   ================================================= */
 
 function mulaScanner() {
 
 
-  document.getElementById("result").innerHTML = "";
+  console.log(
+    "Memulakan scanner..."
+  );
 
+
+  /*
+   * Kosongkan keputusan lama
+   */
+
+  document.getElementById(
+    "result"
+  ).innerHTML = "";
+
+
+  /*
+   * Jika scanner lama masih ada,
+   * cuba hentikan dahulu
+   */
+
+  if (scanner) {
+
+    scanner.clear()
+
+      .catch(function(error) {
+
+        console.log(
+          "Scanner lama:",
+          error
+        );
+
+      });
+
+  }
+
+
+  /*
+   * Bina scanner baharu
+   */
 
   scanner =
-    new Html5Qrcode("reader");
+    new Html5Qrcode(
+      "reader"
+    );
 
 
-  scanner.start(
+  /*
+   * Konfigurasi scanner
+   */
 
-  {
-    facingMode: "environment"
-  },
-
-  {
+  const config = {
 
     fps: 15,
 
     qrbox: {
+
       width: 300,
+
       height: 300
+
     },
 
     aspectRatio: 1.0,
 
     formatsToSupport: [
-      Html5QrcodeSupportedFormats.QR_CODE
+
+      Html5QrcodeSupportedFormats
+        .QR_CODE
+
     ]
 
-  },
+  };
 
-  qrBerjaya,
 
-  function(errorMessage) {
+  /*
+   * Mulakan kamera
+   */
 
-    // Abaikan mesej ketika kamera sedang mencari QR
+  scanner.start(
 
-  }
+    {
+      facingMode:
+        "environment"
+    },
 
-)
+    config,
+
+    qrBerjaya,
 
     function(errorMessage) {
 
       /*
-       * Abaikan mesej
-       * ketika kamera mencari QR
+       * Ini normal.
+       *
+       * Scanner akan memanggil
+       * fungsi ini setiap kali
+       * belum jumpa QR.
+       *
+       * Jadi kita abaikan.
        */
 
     }
 
   )
 
+  .then(function() {
+
+
+    console.log(
+      "KAMERA BERJAYA DIMULAKAN."
+    );
+
+
+  })
 
   .catch(function(error) {
 
 
-    console.error(error);
+    console.error(
+      "RALAT KAMERA:",
+      error
+    );
 
 
-    document.getElementById("result").innerHTML = `
+    document.getElementById(
+      "result"
+    ).innerHTML = `
 
       <div class="card error">
+
 
         <div class="error-title">
 
@@ -645,10 +901,23 @@ function mulaScanner() {
 
         <div class="info">
 
-          Sila pastikan browser mempunyai
-          kebenaran menggunakan kamera.
+          Browser tidak dapat
+          mengakses kamera.
 
         </div>
+
+
+        <div class="info">
+
+          <strong>Ralat:</strong><br>
+
+          ${escapeHTML(
+            error.message ||
+            String(error)
+          )}
+
+        </div>
+
 
       </div>
 
@@ -660,17 +929,17 @@ function mulaScanner() {
 
 
 
-/*
-====================================================
- KESELAMATAN PAPARAN DATA
-====================================================
-*/
+/* =================================================
+   ESCAPE HTML
+   ================================================= */
 
 function escapeHTML(text) {
 
 
   const div =
-    document.createElement("div");
+    document.createElement(
+      "div"
+    );
 
 
   div.textContent =
@@ -683,11 +952,9 @@ function escapeHTML(text) {
 
 
 
-/*
-====================================================
- MULAKAN
-====================================================
-*/
+/* =================================================
+   MULAKAN SISTEM
+   ================================================= */
 
 mulaScanner();
 
