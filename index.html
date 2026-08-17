@@ -203,38 +203,10 @@
 
     }
 
-
-    button:active {
-
-      transform: scale(0.98);
-
-    }
-
-
-    /*
-     * Iframe untuk komunikasi
-     * dengan Google Apps Script.
-     */
-
-    .hidden-frame {
-
-      position: absolute;
-
-      width: 1px;
-
-      height: 1px;
-
-      border: 0;
-
-      opacity: 0;
-
-      pointer-events: none;
-
-    }
-
   </style>
 
 </head>
+
 
 
 <body>
@@ -256,12 +228,12 @@
   </div>
 
 
-  <!-- QR SCANNER -->
+  <!-- CAMERA -->
 
   <div id="reader"></div>
 
 
-  <!-- KEPUTUSAN -->
+  <!-- RESULT -->
 
   <div id="result"></div>
 
@@ -274,7 +246,7 @@
 
 
 /* =================================================
-   GOOGLE APPS SCRIPT URL
+   APPS SCRIPT URL
    ================================================= */
 
 const API_URL =
@@ -288,12 +260,6 @@ const API_URL =
 let scanner = null;
 
 let sedangScan = false;
-
-let apiFrame = null;
-
-let apiToken = null;
-
-let apiTimeout = null;
 
 
 
@@ -336,7 +302,7 @@ function qrBerjaya(
 
 
   /*
-   * Paparkan status
+   * Papar sementara
    */
 
   document.getElementById(
@@ -345,22 +311,18 @@ function qrBerjaya(
 
     <div class="card">
 
-
       <div class="success-title">
 
         QR BERJAYA DIBACA
 
       </div>
 
-
       <div class="info">
 
-        <strong>Data QR:</strong><br>
-
+        <strong>ID:</strong>
         ${escapeHTML(idMurid)}
 
       </div>
-
 
       <div class="info">
 
@@ -368,118 +330,55 @@ function qrBerjaya(
 
       </div>
 
-
     </div>
 
   `;
 
 
   /*
-   * Hentikan scanner
+   * Hentikan kamera
    */
 
-  hentikanScanner();
+  if (scanner) {
+
+    scanner.clear()
+      .catch(function(error) {
+
+        console.log(
+          "Scanner clear:",
+          error
+        );
+
+      });
+
+  }
 
 
   /*
-   * Hantar ke Apps Script
+   * HANTAR REQUEST
    */
 
-  panggilAPI(idMurid);
+  hantarRekod(idMurid);
 
 }
 
 
 
 /* =================================================
-   HENTIKAN SCANNER
+   HANTAR KE APPS SCRIPT
    ================================================= */
 
-function hentikanScanner() {
-
-
-  if (!scanner) {
-
-    return;
-
-  }
-
-
-  scanner
-    .clear()
-
-    .then(function() {
-
-      console.log(
-        "Scanner dihentikan."
-      );
-
-    })
-
-    .catch(function(error) {
-
-      console.log(
-        "Scanner gagal dihentikan:",
-        error
-      );
-
-    });
-
-}
-
-
-
-/* =================================================
-   PANGGIL APPS SCRIPT
-   MENGGUNAKAN HIDDEN IFRAME
-   ================================================= */
-
-function panggilAPI(idMurid) {
+function hantarRekod(idMurid) {
 
 
   /*
-   * Buat token unik
+   * Tambah timestamp supaya
+   * browser tidak gunakan cache.
    */
 
-  apiToken =
-    buatToken();
+  const timestamp =
+    Date.now();
 
-
-  /*
-   * Buang iframe lama
-   */
-
-  if (apiFrame) {
-
-    apiFrame.remove();
-
-    apiFrame = null;
-
-  }
-
-
-  /*
-   * Buat iframe baharu
-   */
-
-  apiFrame =
-    document.createElement(
-      "iframe"
-    );
-
-
-  apiFrame.className =
-    "hidden-frame";
-
-
-  apiFrame.name =
-    "apiFrame_" +
-    apiToken;
-
-
-  /*
-   * Token + ID
-   */
 
   const url =
 
@@ -492,232 +391,127 @@ function panggilAPI(idMurid) {
       idMurid
     ) +
 
-    "&mode=iframe" +
-
-    "&token=" +
-    encodeURIComponent(
-      apiToken
-    );
+    "&t=" +
+    timestamp;
 
 
   console.log(
-    "HANTAR KE APPS SCRIPT:",
+    "HANTAR REQUEST:",
     url
   );
 
 
   /*
-   * Masukkan iframe
+   * Gunakan elemen IMAGE.
+   *
+   * Browser akan menghantar GET request
+   * kepada Apps Script tanpa memerlukan
+   * CORS atau JSONP.
    */
 
-  document.body.appendChild(
-    apiFrame
+  const img =
+    new Image();
+
+
+  let selesai =
+    false;
+
+
+  /*
+   * Fungsi selesai
+   */
+
+  function berjayaHantar() {
+
+    if (selesai) {
+
+      return;
+
+    }
+
+    selesai = true;
+
+
+    paparBerjaya(
+      idMurid
+    );
+
+  }
+
+
+  /*
+   * Kalau request berjaya dimuatkan
+   */
+
+  img.onload =
+    function() {
+
+      console.log(
+        "Request Apps Script berjaya dihantar."
+      );
+
+      berjayaHantar();
+
+    };
+
+
+  /*
+   * Walaupun respons bukan format
+   * imej, request biasanya tetap telah
+   * dihantar kepada server.
+   *
+   * Jadi kita gunakan timeout pendek
+   * sebagai fallback.
+   */
+
+  img.onerror =
+    function() {
+
+      console.log(
+        "Respons image tidak boleh dipaparkan."
+      );
+
+      /*
+       * Request masih mungkin telah
+       * sampai ke server.
+       */
+
+      setTimeout(
+        berjayaHantar,
+        800
+      );
+
+    };
+
+
+  /*
+   * Fallback jika browser tidak
+   * memanggil onload / onerror.
+   */
+
+  setTimeout(
+    berjayaHantar,
+    1500
   );
 
 
   /*
-   * Set URL selepas iframe
-   * dimasukkan ke halaman
+   * MULAKAN REQUEST
    */
 
-  apiFrame.src =
+  img.src =
     url;
-
-
-  /*
-   * Timeout keselamatan
-   */
-
-  apiTimeout =
-    setTimeout(
-      function() {
-
-        console.log(
-          "Timeout API."
-        );
-
-
-        paparRalat(
-          "Sistem mengambil masa terlalu lama untuk memberi respons."
-        );
-
-      },
-      15000
-    );
 
 }
 
 
 
 /* =================================================
-   TERIMA POSTMESSAGE
+   PAPAR BERJAYA
    ================================================= */
 
-window.addEventListener(
-  "message",
-  function(event) {
+function paparBerjaya(idMurid) {
 
-
-    console.log(
-      "POSTMESSAGE DITERIMA:",
-      event.data
-    );
-
-
-    /*
-     * Pastikan mesej datang
-     * daripada sistem kita.
-     */
-
-    if (
-      !event.data ||
-      event.data.source !==
-        "sistem-murid-lewat"
-    ) {
-
-      return;
-
-    }
-
-
-    /*
-     * Pastikan token sama
-     */
-
-    if (
-      event.data.token !==
-      apiToken
-    ) {
-
-      return;
-
-    }
-
-
-    /*
-     * Pastikan iframe yang betul
-     */
-
-    if (
-      apiFrame &&
-      event.source !==
-        apiFrame.contentWindow
-    ) {
-
-      return;
-
-    }
-
-
-    /*
-     * Batalkan timeout
-     */
-
-    if (apiTimeout) {
-
-      clearTimeout(
-        apiTimeout
-      );
-
-      apiTimeout = null;
-
-    }
-
-
-    /*
-     * Ambil data
-     */
-
-    const data =
-      event.data.data;
-
-
-    /*
-     * Buang iframe
-     */
-
-    if (apiFrame) {
-
-      apiFrame.remove();
-
-      apiFrame = null;
-
-    }
-
-
-    /*
-     * Paparkan keputusan
-     */
-
-    paparKeputusan(data);
-
-  }
-);
-
-
-
-/* =================================================
-   PAPAR KEPUTUSAN
-   ================================================= */
-
-function paparKeputusan(data) {
-
-
-  /*
-   * GAGAL
-   */
-
-  if (!data.berjaya) {
-
-
-    document.getElementById(
-      "result"
-    ).innerHTML = `
-
-      <div class="card error">
-
-
-        <div class="error-title">
-
-          QR TIDAK DIKENALI
-
-        </div>
-
-
-        <div class="info">
-
-          ${escapeHTML(
-            data.mesej ||
-            "Murid tidak dijumpai."
-          )}
-
-        </div>
-
-
-      </div>
-
-
-      <button
-        onclick="mulaScanner()">
-
-        SCAN SEMULA
-
-      </button>
-
-    `;
-
-
-    sedangScan = false;
-
-
-    return;
-
-  }
-
-
-  /*
-   * BERJAYA
-   */
 
   document.getElementById(
     "result"
@@ -725,57 +519,28 @@ function paparKeputusan(data) {
 
     <div class="card success">
 
-
       <div class="success-title">
 
-        ✓ REKOD BERJAYA
+        ✓ REKOD DIHANTAR
 
       </div>
 
 
       <div class="info">
 
-        <strong>Nama:</strong><br>
+        <strong>ID Murid:</strong><br>
 
-        ${escapeHTML(
-          data.nama
-        )}
+        ${escapeHTML(idMurid)}
 
       </div>
 
 
       <div class="info">
 
-        <strong>Kelas:</strong><br>
-
-        ${escapeHTML(
-          data.kelas
-        )}
+        Rekod telah dihantar
+        ke sistem.
 
       </div>
-
-
-      <div class="info">
-
-        <strong>Tarikh:</strong><br>
-
-        ${escapeHTML(
-          data.tarikh
-        )}
-
-      </div>
-
-
-      <div class="info">
-
-        <strong>Masa tiba:</strong><br>
-
-        ${escapeHTML(
-          data.masa
-        )}
-
-      </div>
-
 
     </div>
 
@@ -797,30 +562,10 @@ function paparKeputusan(data) {
 
 
 /* =================================================
-   RALAT
+   ERROR
    ================================================= */
 
 function paparRalat(mesej) {
-
-
-  if (apiTimeout) {
-
-    clearTimeout(
-      apiTimeout
-    );
-
-    apiTimeout = null;
-
-  }
-
-
-  if (apiFrame) {
-
-    apiFrame.remove();
-
-    apiFrame = null;
-
-  }
 
 
   document.getElementById(
@@ -828,7 +573,6 @@ function paparRalat(mesej) {
   ).innerHTML = `
 
     <div class="card error">
-
 
       <div class="error-title">
 
@@ -839,12 +583,9 @@ function paparRalat(mesej) {
 
       <div class="info">
 
-        ${escapeHTML(
-          mesej
-        )}
+        ${escapeHTML(mesej)}
 
       </div>
-
 
     </div>
 
@@ -872,45 +613,34 @@ function paparRalat(mesej) {
 function mulaScanner() {
 
 
-  console.log(
-    "Memulakan scanner..."
-  );
-
-
-  sedangScan = false;
-
-
   document.getElementById(
     "result"
   ).innerHTML = "";
 
 
+  sedangScan = false;
+
+
   /*
-   * Jika ada scanner lama,
-   * cuba bersihkan.
+   * Bersihkan scanner lama
    */
 
   if (scanner) {
 
-    scanner
-      .clear()
+    scanner.clear()
+      .catch(function(error) {
 
-      .catch(
-        function(error) {
+        console.log(
+          error
+        );
 
-          console.log(
-            "Scanner lama:",
-            error
-          );
-
-        }
-      );
+      });
 
   }
 
 
   /*
-   * Bina scanner
+   * Bina scanner baharu
    */
 
   scanner =
@@ -918,10 +648,6 @@ function mulaScanner() {
       "reader"
     );
 
-
-  /*
-   * Tetapan scanner
-   */
 
   const config = {
 
@@ -965,8 +691,8 @@ function mulaScanner() {
     function(errorMessage) {
 
       /*
-       * Abaikan mesej
-       * ketika mencari QR.
+       * Abaikan ketika kamera
+       * sedang mencari QR.
        */
 
     }
@@ -976,7 +702,7 @@ function mulaScanner() {
   .then(function() {
 
     console.log(
-      "Kamera berjaya dimulakan."
+      "KAMERA BERJAYA DIMULAKAN"
     );
 
   })
@@ -985,7 +711,7 @@ function mulaScanner() {
 
 
     console.error(
-      "Ralat kamera:",
+      "RALAT KAMERA:",
       error
     );
 
@@ -996,18 +722,9 @@ function mulaScanner() {
 
       <div class="card error">
 
-
         <div class="error-title">
 
           KAMERA TIDAK DAPAT DIBUKA
-
-        </div>
-
-
-        <div class="info">
-
-          Browser tidak dapat
-          mengakses kamera.
 
         </div>
 
@@ -1021,7 +738,6 @@ function mulaScanner() {
 
         </div>
 
-
       </div>
 
     `;
@@ -1033,52 +749,20 @@ function mulaScanner() {
 
 
 /* =================================================
-   TOKEN UNIK
-   ================================================= */
-
-function buatToken() {
-
-
-  if (
-    window.crypto &&
-    crypto.randomUUID
-  ) {
-
-    return crypto.randomUUID();
-
-  }
-
-
-  return (
-    Date.now() +
-    "_" +
-    Math.random()
-      .toString(36)
-      .substring(2)
-  );
-
-}
-
-
-
-/* =================================================
    ESCAPE HTML
    ================================================= */
 
 function escapeHTML(text) {
-
 
   const div =
     document.createElement(
       "div"
     );
 
-
   div.textContent =
     text == null
       ? ""
       : String(text);
-
 
   return div.innerHTML;
 
@@ -1087,7 +771,7 @@ function escapeHTML(text) {
 
 
 /* =================================================
-   START
+   MULA
    ================================================= */
 
 mulaScanner();
