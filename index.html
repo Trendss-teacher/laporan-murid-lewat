@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ms">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+  <title>Rekod Murid Lewat</title>
+
+
+  <!-- QR Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"
+          type="text/javascript">
+  </script>
+
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+
+    body {
+
+      margin: 0;
+
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+      background:
+        #f1f5f9;
+
+      color: #1e293b;
+
+    }
+
+
+    .container {
+
+      width: 100%;
+
+      max-width: 520px;
+
+      margin: auto;
+
+      padding: 20px;
+
+    }
+
+
+    .header {
+
+      text-align: center;
+
+      margin-bottom: 20px;
+
+    }
+
+
+    .header h1 {
+
+      margin: 0;
+
+      font-size: 25px;
+
+    }
+
+
+    .header p {
+
+      margin-top: 8px;
+
+      color: #64748b;
+
+    }
+
+
+    #reader {
+
+      background: white;
+
+      padding: 10px;
+
+      border-radius: 16px;
+
+      box-shadow:
+        0 4px 15px
+        rgba(0,0,0,0.08);
+
+    }
+
+
+    #result {
+
+      margin-top: 20px;
+
+    }
+
+
+    .card {
+
+      background: white;
+
+      padding: 20px;
+
+      border-radius: 16px;
+
+      box-shadow:
+        0 4px 15px
+        rgba(0,0,0,0.08);
+
+    }
+
+
+    .success {
+
+      border-left:
+        6px solid #16a34a;
+
+    }
+
+
+    .error {
+
+      border-left:
+        6px solid #dc2626;
+
+    }
+
+
+    .success-title {
+
+      color: #15803d;
+
+      font-size: 20px;
+
+      font-weight: bold;
+
+      margin-bottom: 15px;
+
+    }
+
+
+    .error-title {
+
+      color: #b91c1c;
+
+      font-size: 20px;
+
+      font-weight: bold;
+
+      margin-bottom: 15px;
+
+    }
+
+
+    .info {
+
+      margin: 9px 0;
+
+      line-height: 1.5;
+
+    }
+
+
+    button {
+
+      width: 100%;
+
+      margin-top: 18px;
+
+      padding: 15px;
+
+      border: none;
+
+      border-radius: 10px;
+
+      background: #2563eb;
+
+      color: white;
+
+      font-size: 17px;
+
+      font-weight: bold;
+
+      cursor: pointer;
+
+    }
+
+
+    button:active {
+
+      transform: scale(0.98);
+
+    }
+
+
+    .loading {
+
+      text-align: center;
+
+      padding: 20px;
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+
+<div class="container">
+
+
+  <div class="header">
+
+    <h1>REKOD MURID LEWAT</h1>
+
+    <p>
+      Imbas QR murid yang tiba lewat
+    </p>
+
+  </div>
+
+
+  <div id="reader"></div>
+
+
+  <div id="result"></div>
+
+
+</div>
+
+
+
+<script>
+
+
+/*
+====================================================
+ MASUKKAN URL WEB APP GOOGLE APPS SCRIPT DI SINI
+====================================================
+*/
+
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbwIFOIdPcUo1VzgE_mm_tEGNYJDYUtVVkXXOEnz9yK3lrr-F2sJJg3Qk1PgaQIdIvte/exec";
+
+
+let scanner = null;
+
+let sedangScan = false;
+
+
+
+/*
+====================================================
+ QR BERJAYA DIBACA
+====================================================
+*/
+
+function qrBerjaya(decodedText, decodedResult) {
+
+
+  if (sedangScan) {
+
+    return;
+
+  }
+
+
+  sedangScan = true;
+
+
+  /*
+   * QR kita hanya mengandungi ID
+   * contoh: M001
+   */
+
+  const idMurid =
+    decodedText.trim();
+
+
+  /*
+   * Hentikan kamera sementara
+   */
+
+  if (scanner) {
+
+    scanner.clear()
+      .catch(function(error) {
+
+        console.log(error);
+
+      });
+
+  }
+
+
+  /*
+   * Paparkan status
+   */
+
+  document.getElementById("result").innerHTML = `
+
+    <div class="card">
+
+      <div class="loading">
+
+        Sedang merekod murid...
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  /*
+   * Panggil Google Apps Script
+   */
+
+  panggilAPI(idMurid);
+
+}
+
+
+
+/*
+====================================================
+ PANGGIL GOOGLE APPS SCRIPT
+====================================================
+*/
+
+function panggilAPI(idMurid) {
+
+
+  /*
+   * JSONP callback
+   */
+
+  const callbackName =
+    "callback_" +
+    Date.now();
+
+
+  /*
+   * Fungsi callback
+   */
+
+  window[callbackName] =
+    function(data) {
+
+
+      /*
+       * Buang script
+       */
+
+      if (script.parentNode) {
+
+        script.parentNode.removeChild(script);
+
+      }
+
+
+      delete window[callbackName];
+
+
+      /*
+       * Paparkan keputusan
+       */
+
+      paparKeputusan(data);
+
+    };
+
+
+  /*
+   * URL API
+   */
+
+  const url =
+    API_URL +
+    "?action=rekod" +
+    "&id=" +
+    encodeURIComponent(idMurid) +
+    "&callback=" +
+    callbackName;
+
+
+  /*
+   * Cipta script
+   */
+
+  const script =
+    document.createElement("script");
+
+
+  script.src = url;
+
+
+  script.onerror =
+    function() {
+
+      if (script.parentNode) {
+
+        script.parentNode.removeChild(script);
+
+      }
+
+
+      delete window[callbackName];
+
+
+      paparRalat(
+        "Tidak dapat berhubung dengan sistem."
+      );
+
+    };
+
+
+  document.body.appendChild(script);
+
+}
+
+
+
+/*
+====================================================
+ PAPAR KEPUTUSAN
+====================================================
+*/
+
+function paparKeputusan(data) {
+
+
+  if (!data.berjaya) {
+
+
+    document.getElementById("result").innerHTML = `
+
+      <div class="card error">
+
+        <div class="error-title">
+
+          QR TIDAK DIKENALI
+
+        </div>
+
+        <div class="info">
+
+          ${escapeHTML(data.mesej)}
+
+        </div>
+
+      </div>
+
+
+      <button onclick="mulaScanner()">
+
+        SCAN SEMULA
+
+      </button>
+
+    `;
+
+
+    sedangScan = false;
+
+
+    return;
+
+  }
+
+
+  /*
+   * Rekod berjaya
+   */
+
+  document.getElementById("result").innerHTML = `
+
+    <div class="card success">
+
+      <div class="success-title">
+
+        REKOD BERJAYA
+
+      </div>
+
+
+      <div class="info">
+
+        <strong>Nama:</strong><br>
+
+        ${escapeHTML(data.nama)}
+
+      </div>
+
+
+      <div class="info">
+
+        <strong>No. IC:</strong><br>
+
+        ${escapeHTML(String(data.ic))}
+
+      </div>
+
+
+      <div class="info">
+
+        <strong>Kelas:</strong><br>
+
+        ${escapeHTML(data.kelas)}
+
+      </div>
+
+
+      <div class="info">
+
+        <strong>Tarikh:</strong><br>
+
+        ${escapeHTML(data.tarikh)}
+
+      </div>
+
+
+      <div class="info">
+
+        <strong>Masa tiba:</strong><br>
+
+        ${escapeHTML(data.masa)}
+
+      </div>
+
+
+    </div>
+
+
+    <button onclick="mulaScanner()">
+
+      SCAN MURID SETERUSNYA
+
+    </button>
+
+  `;
+
+
+  sedangScan = false;
+
+}
+
+
+
+/*
+====================================================
+ ERROR
+====================================================
+*/
+
+function paparRalat(mesej) {
+
+
+  document.getElementById("result").innerHTML = `
+
+    <div class="card error">
+
+      <div class="error-title">
+
+        RALAT SISTEM
+
+      </div>
+
+
+      <div class="info">
+
+        ${escapeHTML(mesej)}
+
+      </div>
+
+    </div>
+
+
+    <button onclick="mulaScanner()">
+
+      CUBA SEMULA
+
+    </button>
+
+  `;
+
+
+  sedangScan = false;
+
+}
+
+
+
+/*
+====================================================
+ MULAKAN SCANNER
+====================================================
+*/
+
+function mulaScanner() {
+
+
+  document.getElementById("result").innerHTML = "";
+
+
+  scanner =
+    new Html5Qrcode("reader");
+
+
+  scanner.start(
+
+    {
+      facingMode: "environment"
+    },
+
+
+    {
+
+      fps: 10,
+
+      qrbox: {
+
+        width: 250,
+
+        height: 250
+
+      }
+
+    },
+
+
+    qrBerjaya,
+
+
+    function(errorMessage) {
+
+      /*
+       * Abaikan mesej
+       * ketika kamera mencari QR
+       */
+
+    }
+
+  )
+
+
+  .catch(function(error) {
+
+
+    console.error(error);
+
+
+    document.getElementById("result").innerHTML = `
+
+      <div class="card error">
+
+        <div class="error-title">
+
+          KAMERA TIDAK DAPAT DIBUKA
+
+        </div>
+
+
+        <div class="info">
+
+          Sila pastikan browser mempunyai
+          kebenaran menggunakan kamera.
+
+        </div>
+
+      </div>
+
+    `;
+
+  });
+
+}
+
+
+
+/*
+====================================================
+ KESELAMATAN PAPARAN DATA
+====================================================
+*/
+
+function escapeHTML(text) {
+
+
+  const div =
+    document.createElement("div");
+
+
+  div.textContent =
+    text;
+
+
+  return div.innerHTML;
+
+}
+
+
+
+/*
+====================================================
+ MULAKAN
+====================================================
+*/
+
+mulaScanner();
+
+
+</script>
+
+
+</body>
+
+</html>
