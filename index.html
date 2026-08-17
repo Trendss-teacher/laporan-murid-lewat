@@ -1,785 +1,270 @@
 <!DOCTYPE html>
 <html lang="ms">
-
 <head>
-
   <meta charset="UTF-8">
-
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rekod Murid Lewat</title>
 
-
   <!-- QR SCANNER -->
-
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
-  </script>
-
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
-
-    * {
-      box-sizing: border-box;
-    }
-
-
+    * { box-sizing: border-box; }
     body {
-
       margin: 0;
-
-      font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
-
+      font-family: Arial, Helvetica, sans-serif;
       background: #f1f5f9;
-
       color: #1e293b;
-
     }
-
-
     .container {
-
       width: 100%;
-
       max-width: 520px;
-
       margin: auto;
-
       padding: 20px;
-
     }
-
-
     .header {
-
       text-align: center;
-
       margin-bottom: 20px;
-
     }
-
-
     .header h1 {
-
       margin: 0;
-
       font-size: 25px;
-
     }
-
-
     .header p {
-
       margin-top: 8px;
-
       color: #64748b;
-
     }
-
-
     #reader {
-
       background: white;
-
       padding: 10px;
-
       border-radius: 16px;
-
-      box-shadow:
-        0 4px 15px
-        rgba(0, 0, 0, 0.08);
-
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
       overflow: hidden;
-
     }
-
-
     #result {
-
       margin-top: 20px;
-
     }
-
-
     .card {
-
       background: white;
-
       padding: 20px;
-
       border-radius: 16px;
-
-      box-shadow:
-        0 4px 15px
-        rgba(0, 0, 0, 0.08);
-
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
     }
-
-
     .success {
-
-      border-left:
-        6px solid #16a34a;
-
+      border-left: 6px solid #16a34a;
     }
-
-
     .error {
-
-      border-left:
-        6px solid #dc2626;
-
+      border-left: 6px solid #dc2626;
     }
-
-
     .success-title {
-
       color: #15803d;
-
       font-size: 20px;
-
       font-weight: bold;
-
       margin-bottom: 15px;
-
     }
-
-
     .error-title {
-
       color: #b91c1c;
-
       font-size: 20px;
-
       font-weight: bold;
-
       margin-bottom: 15px;
-
     }
-
-
     .info {
-
       margin: 9px 0;
-
       line-height: 1.5;
-
     }
-
-
-    .loading {
-
-      text-align: center;
-
-      padding: 20px;
-
-    }
-
-
     button {
-
       width: 100%;
-
       margin-top: 18px;
-
       padding: 15px;
-
       border: none;
-
       border-radius: 10px;
-
       background: #2563eb;
-
       color: white;
-
       font-size: 17px;
-
       font-weight: bold;
-
       cursor: pointer;
-
     }
-
+    /* Spinner for loading state */
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #2563eb;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 10px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
-
 </head>
 
-
-
 <body>
-
-
 <div class="container">
-
-
   <div class="header">
-
-    <h1>
-      REKOD MURID LEWAT
-    </h1>
-
-    <p>
-      Imbas QR murid yang tiba lewat
-    </p>
-
+    <h1>REKOD MURID LEWAT</h1>
+    <p>Imbas QR murid yang tiba lewat</p>
   </div>
 
-
   <!-- CAMERA -->
-
   <div id="reader"></div>
 
-
   <!-- RESULT -->
-
   <div id="result"></div>
-
-
 </div>
 
-
-
 <script>
-
-
 /* =================================================
    APPS SCRIPT URL
    ================================================= */
-
-const API_URL =
-  "https://script.google.com/macros/s/AKfycby4Pm9xKbwLwVzxZTAWESBILTVSiyXF3i_o3Vn4we0jETXuxzA1AsNy-yATM7bkImnC/exec";
-
+// MASUKKAN WEB APP URL ANDA DI SINI
+const API_URL = "https://script.google.com/macros/s/AKfycby4Pm9xKbwLwVzxZTAWESBILTVSiyXF3i_o3Vn4we0jETXuxzA1AsNy-yATM7bkImnC/exec";
 
 /* =================================================
    VARIABLE
    ================================================= */
-
 let scanner = null;
-
 let sedangScan = false;
-
-
 
 /* =================================================
    QR BERJAYA DIBACA
    ================================================= */
-
-function qrBerjaya(
-  decodedText,
-  decodedResult
-) {
-
-
-  console.log(
-    "QR DIBACA:",
-    decodedText
-  );
-
-
-  /*
-   * Elakkan scan berganda
-   */
-
-  if (sedangScan) {
-
-    return;
-
-  }
-
-
+function qrBerjaya(decodedText, decodedResult) {
+  if (sedangScan) return;
   sedangScan = true;
 
+  const idMurid = decodedText.trim();
 
-  /*
-   * Ambil ID
-   */
-
-  const idMurid =
-    decodedText.trim();
-
-
-  /*
-   * Papar sementara
-   */
-
-  document.getElementById(
-    "result"
-  ).innerHTML = `
-
+  // Papar status loading
+  document.getElementById("result").innerHTML = `
     <div class="card">
-
-      <div class="success-title">
-
-        QR BERJAYA DIBACA
-
+      <div class="info" style="text-align: center;">
+        <div class="loader"></div>
+        <strong>Memproses ID: ${escapeHTML(idMurid)}</strong><br>
+        Sila tunggu sebentar...
       </div>
-
-      <div class="info">
-
-        <strong>ID:</strong>
-        ${escapeHTML(idMurid)}
-
-      </div>
-
-      <div class="info">
-
-        Sedang merekod murid...
-
-      </div>
-
     </div>
-
   `;
 
-
-  /*
-   * Hentikan kamera
-   */
-
+  // Hentikan kamera sementara merekod
   if (scanner) {
-
-    scanner.clear()
-      .catch(function(error) {
-
-        console.log(
-          "Scanner clear:",
-          error
-        );
-
-      });
-
+    scanner.clear().catch(err => console.log("Scanner clear:", err));
   }
-
-
-  /*
-   * HANTAR REQUEST
-   */
 
   hantarRekod(idMurid);
-
 }
-
-
 
 /* =================================================
-   HANTAR KE APPS SCRIPT
+   HANTAR KE APPS SCRIPT (MENGGUNAKAN FETCH API)
    ================================================= */
-
 function hantarRekod(idMurid) {
+  const url = `${API_URL}?action=rekod&id=${encodeURIComponent(idMurid)}`;
+  
+  console.log("HANTAR REQUEST:", url);
 
-
-  /*
-   * Tambah timestamp supaya
-   * browser tidak gunakan cache.
-   */
-
-  const timestamp =
-    Date.now();
-
-
-  const url =
-
-    API_URL +
-
-    "?action=rekod" +
-
-    "&id=" +
-    encodeURIComponent(
-      idMurid
-    ) +
-
-    "&t=" +
-    timestamp;
-
-
-  console.log(
-    "HANTAR REQUEST:",
-    url
-  );
-
-
-  /*
-   * Gunakan elemen IMAGE.
-   *
-   * Browser akan menghantar GET request
-   * kepada Apps Script tanpa memerlukan
-   * CORS atau JSONP.
-   */
-
-  const img =
-    new Image();
-
-
-  let selesai =
-    false;
-
-
-  /*
-   * Fungsi selesai
-   */
-
-  function berjayaHantar() {
-
-    if (selesai) {
-
-      return;
-
-    }
-
-    selesai = true;
-
-
-    paparBerjaya(
-      idMurid
-    );
-
-  }
-
-
-  /*
-   * Kalau request berjaya dimuatkan
-   */
-
-  img.onload =
-    function() {
-
-      console.log(
-        "Request Apps Script berjaya dihantar."
-      );
-
-      berjayaHantar();
-
-    };
-
-
-  /*
-   * Walaupun respons bukan format
-   * imej, request biasanya tetap telah
-   * dihantar kepada server.
-   *
-   * Jadi kita gunakan timeout pendek
-   * sebagai fallback.
-   */
-
-  img.onerror =
-    function() {
-
-      console.log(
-        "Respons image tidak boleh dipaparkan."
-      );
-
-      /*
-       * Request masih mungkin telah
-       * sampai ke server.
-       */
-
-      setTimeout(
-        berjayaHantar,
-        800
-      );
-
-    };
-
-
-  /*
-   * Fallback jika browser tidak
-   * memanggil onload / onerror.
-   */
-
-  setTimeout(
-    berjayaHantar,
-    1500
-  );
-
-
-  /*
-   * MULAKAN REQUEST
-   */
-
-  img.src =
-    url;
-
+  fetch(url)
+    .then(response => response.json()) // Baca respons sebagai JSON
+    .then(data => {
+      console.log("Respons Server:", data);
+      
+      if (data.berjaya) {
+        // Jika status true, baru papar berjaya
+        paparBerjaya(data.id, data.nama, data.kelas);
+      } else {
+        // Jika status false (contoh: ID tak wujud), papar mesej ralat dari server
+        paparRalat(data.mesej);
+      }
+    })
+    .catch(error => {
+      console.error("Ralat Rangkaian:", error);
+      paparRalat("Gagal menghubungi server. Sila semak sambungan internet anda.");
+    });
 }
-
-
 
 /* =================================================
    PAPAR BERJAYA
    ================================================= */
-
-function paparBerjaya(idMurid) {
-
-
-  document.getElementById(
-    "result"
-  ).innerHTML = `
-
+function paparBerjaya(idMurid, nama, kelas) {
+  document.getElementById("result").innerHTML = `
     <div class="card success">
-
-      <div class="success-title">
-
-        ✓ REKOD DIHANTAR
-
-      </div>
-
-
-      <div class="info">
-
-        <strong>ID Murid:</strong><br>
-
-        ${escapeHTML(idMurid)}
-
-      </div>
-
-
-      <div class="info">
-
-        Rekod telah dihantar
-        ke sistem.
-
-      </div>
-
+      <div class="success-title">✓ REKOD BERJAYA DISIMPAN</div>
+      <div class="info"><strong>ID Murid:</strong> ${escapeHTML(idMurid)}</div>
+      <div class="info"><strong>Nama:</strong> ${escapeHTML(nama)}</div>
+      <div class="info"><strong>Kelas:</strong> ${escapeHTML(kelas)}</div>
     </div>
-
-
-    <button
-      onclick="mulaScanner()">
-
-      SCAN MURID SETERUSNYA
-
-    </button>
-
+    <button onclick="mulaScanner()">SCAN MURID SETERUSNYA</button>
   `;
-
-
   sedangScan = false;
-
 }
-
-
 
 /* =================================================
    ERROR
    ================================================= */
-
 function paparRalat(mesej) {
-
-
-  document.getElementById(
-    "result"
-  ).innerHTML = `
-
+  document.getElementById("result").innerHTML = `
     <div class="card error">
-
-      <div class="error-title">
-
-        RALAT SISTEM
-
-      </div>
-
-
-      <div class="info">
-
-        ${escapeHTML(mesej)}
-
-      </div>
-
+      <div class="error-title">RALAT / GAGAL</div>
+      <div class="info">${escapeHTML(mesej)}</div>
     </div>
-
-
-    <button
-      onclick="mulaScanner()">
-
-      CUBA SEMULA
-
-    </button>
-
+    <button onclick="mulaScanner()">CUBA SEMULA</button>
   `;
-
-
   sedangScan = false;
-
 }
-
-
 
 /* =================================================
    MULAKAN SCANNER
    ================================================= */
-
 function mulaScanner() {
-
-
-  document.getElementById(
-    "result"
-  ).innerHTML = "";
-
-
+  document.getElementById("result").innerHTML = "";
   sedangScan = false;
 
-
-  /*
-   * Bersihkan scanner lama
-   */
-
   if (scanner) {
-
-    scanner.clear()
-      .catch(function(error) {
-
-        console.log(
-          error
-        );
-
-      });
-
+    scanner.clear().catch(err => console.log(err));
   }
 
-
-  /*
-   * Bina scanner baharu
-   */
-
-  scanner =
-    new Html5Qrcode(
-      "reader"
-    );
-
+  scanner = new Html5Qrcode("reader");
 
   const config = {
-
     fps: 15,
-
-    qrbox: {
-
-      width: 300,
-
-      height: 300
-
-    },
-
+    qrbox: { width: 300, height: 300 },
     aspectRatio: 1.0,
-
-    formatsToSupport: [
-
-      Html5QrcodeSupportedFormats
-        .QR_CODE
-
-    ]
-
+    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
   };
 
-
-  /*
-   * Mulakan kamera
-   */
-
   scanner.start(
-
-    {
-      facingMode:
-        "environment"
-    },
-
+    { facingMode: "environment" },
     config,
-
     qrBerjaya,
-
-    function(errorMessage) {
-
-      /*
-       * Abaikan ketika kamera
-       * sedang mencari QR.
-       */
-
-    }
-
-  )
-
-  .then(function() {
-
-    console.log(
-      "KAMERA BERJAYA DIMULAKAN"
-    );
-
-  })
-
-  .catch(function(error) {
-
-
-    console.error(
-      "RALAT KAMERA:",
-      error
-    );
-
-
-    document.getElementById(
-      "result"
-    ).innerHTML = `
-
+    function(errorMessage) { /* abaikan error carian */ }
+  ).then(() => {
+    console.log("KAMERA BERJAYA DIMULAKAN");
+  }).catch((error) => {
+    console.error("RALAT KAMERA:", error);
+    document.getElementById("result").innerHTML = `
       <div class="card error">
-
-        <div class="error-title">
-
-          KAMERA TIDAK DAPAT DIBUKA
-
-        </div>
-
-
-        <div class="info">
-
-          ${escapeHTML(
-            error.message ||
-            String(error)
-          )}
-
-        </div>
-
+        <div class="error-title">KAMERA TIDAK DAPAT DIBUKA</div>
+        <div class="info">${escapeHTML(error.message || String(error))}</div>
       </div>
-
     `;
-
   });
-
 }
-
-
 
 /* =================================================
    ESCAPE HTML
    ================================================= */
-
 function escapeHTML(text) {
-
-  const div =
-    document.createElement(
-      "div"
-    );
-
-  div.textContent =
-    text == null
-      ? ""
-      : String(text);
-
+  const div = document.createElement("div");
+  div.textContent = text == null ? "" : String(text);
   return div.innerHTML;
-
 }
-
-
 
 /* =================================================
    MULA
    ================================================= */
-
 mulaScanner();
-
-
 </script>
 
-
 </body>
-
 </html>
