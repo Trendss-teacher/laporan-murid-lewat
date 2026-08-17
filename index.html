@@ -11,9 +11,7 @@
   <title>Rekod Murid Lewat</title>
 
 
-  <!-- =========================================
-       QR SCANNER
-       ========================================= -->
+  <!-- QR SCANNER -->
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
   </script>
@@ -82,10 +80,6 @@
     }
 
 
-    /* =========================================
-       QR READER
-       ========================================= */
-
     #reader {
 
       background: white;
@@ -102,10 +96,6 @@
 
     }
 
-
-    /* =========================================
-       RESULT
-       ========================================= */
 
     #result {
 
@@ -189,10 +179,6 @@
     }
 
 
-    /* =========================================
-       BUTTON
-       ========================================= */
-
     button {
 
       width: 100%;
@@ -225,6 +211,27 @@
     }
 
 
+    /*
+     * Iframe untuk komunikasi
+     * dengan Google Apps Script.
+     */
+
+    .hidden-frame {
+
+      position: absolute;
+
+      width: 1px;
+
+      height: 1px;
+
+      border: 0;
+
+      opacity: 0;
+
+      pointer-events: none;
+
+    }
+
   </style>
 
 </head>
@@ -235,10 +242,6 @@
 
 <div class="container">
 
-
-  <!-- =========================================
-       HEADER
-       ========================================= -->
 
   <div class="header">
 
@@ -253,16 +256,12 @@
   </div>
 
 
-  <!-- =========================================
-       QR SCANNER
-       ========================================= -->
+  <!-- QR SCANNER -->
 
   <div id="reader"></div>
 
 
-  <!-- =========================================
-       RESULT
-       ========================================= -->
+  <!-- KEPUTUSAN -->
 
   <div id="result"></div>
 
@@ -275,7 +274,7 @@
 
 
 /* =================================================
-   URL GOOGLE APPS SCRIPT
+   GOOGLE APPS SCRIPT URL
    ================================================= */
 
 const API_URL =
@@ -283,12 +282,18 @@ const API_URL =
 
 
 /* =================================================
-   VARIABLE SCANNER
+   VARIABLE
    ================================================= */
 
 let scanner = null;
 
 let sedangScan = false;
+
+let apiFrame = null;
+
+let apiToken = null;
+
+let apiTimeout = null;
 
 
 
@@ -296,18 +301,15 @@ let sedangScan = false;
    QR BERJAYA DIBACA
    ================================================= */
 
-function qrBerjaya(decodedText, decodedResult) {
+function qrBerjaya(
+  decodedText,
+  decodedResult
+) {
 
 
   console.log(
-    "QR BERJAYA DIBACA:",
+    "QR DIBACA:",
     decodedText
-  );
-
-
-  console.log(
-    "MAKLUMAT QR:",
-    decodedResult
   );
 
 
@@ -326,12 +328,7 @@ function qrBerjaya(decodedText, decodedResult) {
 
 
   /*
-   * Ambil ID daripada QR
-   *
-   * Contoh:
-   *
-   * M001
-   * M002
+   * Ambil ID
    */
 
   const idMurid =
@@ -339,12 +336,15 @@ function qrBerjaya(decodedText, decodedResult) {
 
 
   /*
-   * Paparkan bahawa QR telah dibaca
+   * Paparkan status
    */
 
-  document.getElementById("result").innerHTML = `
+  document.getElementById(
+    "result"
+  ).innerHTML = `
 
     <div class="card">
+
 
       <div class="success-title">
 
@@ -364,10 +364,10 @@ function qrBerjaya(decodedText, decodedResult) {
 
       <div class="info">
 
-        Sedang mendapatkan
-        maklumat murid...
+        Sedang merekod murid...
 
       </div>
+
 
     </div>
 
@@ -375,35 +375,14 @@ function qrBerjaya(decodedText, decodedResult) {
 
 
   /*
-   * Hentikan scanner sementara
+   * Hentikan scanner
    */
 
-  if (scanner) {
-
-    scanner.clear()
-
-      .then(function() {
-
-        console.log(
-          "Scanner dihentikan."
-        );
-
-      })
-
-      .catch(function(error) {
-
-        console.log(
-          "Gagal menghentikan scanner:",
-          error
-        );
-
-      });
-
-  }
+  hentikanScanner();
 
 
   /*
-   * Hantar ID kepada Apps Script
+   * Hantar ke Apps Script
    */
 
   panggilAPI(idMurid);
@@ -413,155 +392,267 @@ function qrBerjaya(decodedText, decodedResult) {
 
 
 /* =================================================
-   PANGGIL GOOGLE APPS SCRIPT
+   HENTIKAN SCANNER
+   ================================================= */
+
+function hentikanScanner() {
+
+
+  if (!scanner) {
+
+    return;
+
+  }
+
+
+  scanner
+    .clear()
+
+    .then(function() {
+
+      console.log(
+        "Scanner dihentikan."
+      );
+
+    })
+
+    .catch(function(error) {
+
+      console.log(
+        "Scanner gagal dihentikan:",
+        error
+      );
+
+    });
+
+}
+
+
+
+/* =================================================
+   PANGGIL APPS SCRIPT
+   MENGGUNAKAN HIDDEN IFRAME
    ================================================= */
 
 function panggilAPI(idMurid) {
 
 
   /*
-   * Nama callback unik
+   * Buat token unik
    */
 
-  const callbackName =
-    "callback_" +
-    Date.now();
+  apiToken =
+    buatToken();
 
 
   /*
-   * Fungsi callback JSONP
+   * Buang iframe lama
    */
 
-  window[callbackName] =
-    function(data) {
+  if (apiFrame) {
 
+    apiFrame.remove();
 
-      console.log(
-        "RESPON APPS SCRIPT:",
-        data
-      );
+    apiFrame = null;
 
-
-      /*
-       * Buang script JSONP
-       */
-
-      if (
-        window.currentApiScript &&
-        window.currentApiScript.parentNode
-      ) {
-
-        window.currentApiScript
-          .parentNode
-          .removeChild(
-            window.currentApiScript
-          );
-
-      }
-
-
-      /*
-       * Padam callback
-       */
-
-      delete window[callbackName];
-
-
-      /*
-       * Paparkan keputusan
-       */
-
-      paparKeputusan(data);
-
-    };
+  }
 
 
   /*
-   * Bina URL API
+   * Buat iframe baharu
+   */
+
+  apiFrame =
+    document.createElement(
+      "iframe"
+    );
+
+
+  apiFrame.className =
+    "hidden-frame";
+
+
+  apiFrame.name =
+    "apiFrame_" +
+    apiToken;
+
+
+  /*
+   * Token + ID
    */
 
   const url =
+
     API_URL +
+
     "?action=rekod" +
+
     "&id=" +
-    encodeURIComponent(idMurid) +
-    "&callback=" +
-    callbackName;
+    encodeURIComponent(
+      idMurid
+    ) +
+
+    "&mode=iframe" +
+
+    "&token=" +
+    encodeURIComponent(
+      apiToken
+    );
 
 
   console.log(
-    "PANGGIL API:",
+    "HANTAR KE APPS SCRIPT:",
     url
   );
 
 
   /*
-   * Cipta script
-   */
-
-  const script =
-    document.createElement("script");
-
-
-  /*
-   * Simpan supaya boleh dibuang nanti
-   */
-
-  window.currentApiScript =
-    script;
-
-
-  /*
-   * URL API
-
-   */
-
-  script.src = url;
-
-
-  /*
-   * Jika API gagal
-
-   */
-
-  script.onerror =
-    function() {
-
-
-      console.error(
-        "API tidak dapat dihubungi."
-      );
-
-
-      if (
-        script.parentNode
-      ) {
-
-        script.parentNode
-          .removeChild(script);
-
-      }
-
-
-      delete window[callbackName];
-
-
-      paparRalat(
-        "Tidak dapat berhubung dengan sistem Google Apps Script."
-      );
-
-    };
-
-
-  /*
-   * Masukkan script ke halaman
+   * Masukkan iframe
    */
 
   document.body.appendChild(
-    script
+    apiFrame
   );
 
+
+  /*
+   * Set URL selepas iframe
+   * dimasukkan ke halaman
+   */
+
+  apiFrame.src =
+    url;
+
+
+  /*
+   * Timeout keselamatan
+   */
+
+  apiTimeout =
+    setTimeout(
+      function() {
+
+        console.log(
+          "Timeout API."
+        );
+
+
+        paparRalat(
+          "Sistem mengambil masa terlalu lama untuk memberi respons."
+        );
+
+      },
+      15000
+    );
+
 }
+
+
+
+/* =================================================
+   TERIMA POSTMESSAGE
+   ================================================= */
+
+window.addEventListener(
+  "message",
+  function(event) {
+
+
+    console.log(
+      "POSTMESSAGE DITERIMA:",
+      event.data
+    );
+
+
+    /*
+     * Pastikan mesej datang
+     * daripada sistem kita.
+     */
+
+    if (
+      !event.data ||
+      event.data.source !==
+        "sistem-murid-lewat"
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Pastikan token sama
+     */
+
+    if (
+      event.data.token !==
+      apiToken
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Pastikan iframe yang betul
+     */
+
+    if (
+      apiFrame &&
+      event.source !==
+        apiFrame.contentWindow
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Batalkan timeout
+     */
+
+    if (apiTimeout) {
+
+      clearTimeout(
+        apiTimeout
+      );
+
+      apiTimeout = null;
+
+    }
+
+
+    /*
+     * Ambil data
+     */
+
+    const data =
+      event.data.data;
+
+
+    /*
+     * Buang iframe
+     */
+
+    if (apiFrame) {
+
+      apiFrame.remove();
+
+      apiFrame = null;
+
+    }
+
+
+    /*
+     * Paparkan keputusan
+     */
+
+    paparKeputusan(data);
+
+  }
+);
 
 
 
@@ -573,15 +664,18 @@ function paparKeputusan(data) {
 
 
   /*
-   * Jika murid tidak dijumpai
+   * GAGAL
    */
 
   if (!data.berjaya) {
 
 
-    document.getElementById("result").innerHTML = `
+    document.getElementById(
+      "result"
+    ).innerHTML = `
 
       <div class="card error">
+
 
         <div class="error-title">
 
@@ -598,6 +692,7 @@ function paparKeputusan(data) {
           )}
 
         </div>
+
 
       </div>
 
@@ -621,17 +716,19 @@ function paparKeputusan(data) {
 
 
   /*
-   * Jika berjaya
+   * BERJAYA
    */
 
-  document.getElementById("result").innerHTML = `
+  document.getElementById(
+    "result"
+  ).innerHTML = `
 
     <div class="card success">
 
 
       <div class="success-title">
 
-        REKOD BERJAYA
+        ✓ REKOD BERJAYA
 
       </div>
 
@@ -642,17 +739,6 @@ function paparKeputusan(data) {
 
         ${escapeHTML(
           data.nama
-        )}
-
-      </div>
-
-
-      <div class="info">
-
-        <strong>No. IC:</strong><br>
-
-        ${escapeHTML(
-          String(data.ic)
         )}
 
       </div>
@@ -711,13 +797,35 @@ function paparKeputusan(data) {
 
 
 /* =================================================
-   PAPAR RALAT
+   RALAT
    ================================================= */
 
 function paparRalat(mesej) {
 
 
-  document.getElementById("result").innerHTML = `
+  if (apiTimeout) {
+
+    clearTimeout(
+      apiTimeout
+    );
+
+    apiTimeout = null;
+
+  }
+
+
+  if (apiFrame) {
+
+    apiFrame.remove();
+
+    apiFrame = null;
+
+  }
+
+
+  document.getElementById(
+    "result"
+  ).innerHTML = `
 
     <div class="card error">
 
@@ -731,7 +839,9 @@ function paparRalat(mesej) {
 
       <div class="info">
 
-        ${escapeHTML(mesej)}
+        ${escapeHTML(
+          mesej
+        )}
 
       </div>
 
@@ -767,9 +877,8 @@ function mulaScanner() {
   );
 
 
-  /*
-   * Kosongkan keputusan lama
-   */
+  sedangScan = false;
+
 
   document.getElementById(
     "result"
@@ -777,28 +886,31 @@ function mulaScanner() {
 
 
   /*
-   * Jika scanner lama masih ada,
-   * cuba hentikan dahulu
+   * Jika ada scanner lama,
+   * cuba bersihkan.
    */
 
   if (scanner) {
 
-    scanner.clear()
+    scanner
+      .clear()
 
-      .catch(function(error) {
+      .catch(
+        function(error) {
 
-        console.log(
-          "Scanner lama:",
-          error
-        );
+          console.log(
+            "Scanner lama:",
+            error
+          );
 
-      });
+        }
+      );
 
   }
 
 
   /*
-   * Bina scanner baharu
+   * Bina scanner
    */
 
   scanner =
@@ -808,7 +920,7 @@ function mulaScanner() {
 
 
   /*
-   * Konfigurasi scanner
+   * Tetapan scanner
    */
 
   const config = {
@@ -853,13 +965,8 @@ function mulaScanner() {
     function(errorMessage) {
 
       /*
-       * Ini normal.
-       *
-       * Scanner akan memanggil
-       * fungsi ini setiap kali
-       * belum jumpa QR.
-       *
-       * Jadi kita abaikan.
+       * Abaikan mesej
+       * ketika mencari QR.
        */
 
     }
@@ -868,11 +975,9 @@ function mulaScanner() {
 
   .then(function() {
 
-
     console.log(
-      "KAMERA BERJAYA DIMULAKAN."
+      "Kamera berjaya dimulakan."
     );
-
 
   })
 
@@ -880,7 +985,7 @@ function mulaScanner() {
 
 
     console.error(
-      "RALAT KAMERA:",
+      "Ralat kamera:",
       error
     );
 
@@ -909,8 +1014,6 @@ function mulaScanner() {
 
         <div class="info">
 
-          <strong>Ralat:</strong><br>
-
           ${escapeHTML(
             error.message ||
             String(error)
@@ -930,6 +1033,35 @@ function mulaScanner() {
 
 
 /* =================================================
+   TOKEN UNIK
+   ================================================= */
+
+function buatToken() {
+
+
+  if (
+    window.crypto &&
+    crypto.randomUUID
+  ) {
+
+    return crypto.randomUUID();
+
+  }
+
+
+  return (
+    Date.now() +
+    "_" +
+    Math.random()
+      .toString(36)
+      .substring(2)
+  );
+
+}
+
+
+
+/* =================================================
    ESCAPE HTML
    ================================================= */
 
@@ -943,7 +1075,9 @@ function escapeHTML(text) {
 
 
   div.textContent =
-    text;
+    text == null
+      ? ""
+      : String(text);
 
 
   return div.innerHTML;
@@ -953,7 +1087,7 @@ function escapeHTML(text) {
 
 
 /* =================================================
-   MULAKAN SISTEM
+   START
    ================================================= */
 
 mulaScanner();
