@@ -8,12 +8,10 @@
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0">
 
-  <title>Rekod Murid Lewat (v2.0)</title>
+  <title>Rekod Murid Lewat</title>
 
 
-  <!-- =============================================
-       QR SCANNER
-       ============================================= -->
+  <!-- QR SCANNER -->
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
   </script>
@@ -217,15 +215,14 @@
 </head>
 
 
+
 <body>
 
 
 <div class="container">
 
 
-  <!-- =============================================
-       TAJUK
-       ============================================= -->
+  <!-- HEADER -->
 
   <div class="header">
 
@@ -240,16 +237,12 @@
   </div>
 
 
-  <!-- =============================================
-       SCANNER
-       ============================================= -->
+  <!-- SCANNER -->
 
   <div id="reader"></div>
 
 
-  <!-- =============================================
-       KEPUTUSAN
-       ============================================= -->
+  <!-- RESULT -->
 
   <div id="result"></div>
 
@@ -261,17 +254,17 @@
 <script>
 
 
-/* ==================================================
-   URL GOOGLE APPS SCRIPT
-   ================================================== */
+/* =====================================================
+   GOOGLE APPS SCRIPT
+   ===================================================== */
 
 const API_URL =
   "https://script.google.com/macros/s/AKfycby4Pm9xKbwLwVzxZTAWESBILTVSiyXF3i_o3Vn4we0jETXuxzA1AsNy-yATM7bkImnC/exec";
 
 
-/* ==================================================
+/* =====================================================
    VARIABLE
-   ================================================== */
+   ===================================================== */
 
 let scanner = null;
 
@@ -279,340 +272,128 @@ let sedangScan = false;
 
 
 
-/* ==================================================
-   QR BERJAYA
-   ================================================== */
-function qrBerjaya(decodedText, decodedResult) {
+/* =====================================================
+   SEMAK STATUS SELEPAS KEMBALI DARI APPS SCRIPT
+   ===================================================== */
 
-  console.log("QR DIBACA:", decodedText);
+function semakStatusKembali() {
 
-  if (sedangScan) {
-    return;
-  }
 
-  sedangScan = true;
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
 
-  const idMurid = decodedText.trim();
 
-  /*
-   * Paparkan maklumat yang telah dibaca
-   */
+  const status =
+    params.get("status");
 
-  document.getElementById("result").innerHTML = `
 
-    <div class="card">
-
-      <div class="success-title">
-        QR BERJAYA DIBACA
-      </div>
-
-      <div class="info">
-        <strong>ID:</strong><br>
-        ${escapeHTML(idMurid)}
-      </div>
-
-      <div class="loading">
-        Membuka sistem rekod...
-      </div>
-
-    </div>
-
-  `;
+  const id =
+    params.get("id");
 
 
   /*
-   * Bina URL Apps Script
-   */
-
-  const url =
-    API_URL +
-    "?action=rekod" +
-    "&id=" +
-    encodeURIComponent(idMurid);
-
-
-  console.log("BUKA URL:", url);
-
-
-  /*
-   * INI YANG PALING PENTING
+   * Tiada status.
    *
-   * Browser akan pergi ke URL
-   * tersebut seperti kita taip
-   * URL dan tekan ENTER.
+   * Ini bermaksud kita buka laman
+   * secara normal.
    */
 
-  setTimeout(function() {
+  if (!status) {
 
-    window.location.href = url;
-
-  }, 500);
-
-}
-
-
-
-/* ==================================================
-   HENTIKAN SCANNER
-   ================================================== */
-
-function hentikanScanner() {
-
-
-  if (!scanner) {
-
-    return Promise.resolve();
+    return false;
 
   }
 
 
-  return scanner
-    .clear()
-
-    .catch(function(error) {
-
-      console.log(
-        "Ralat clear scanner:",
-        error
-      );
-
-    });
-
-}
-
-
-
-/* ==================================================
-   HANTAR KE APPS SCRIPT
-   MENGGUNAKAN SEND BEACON
-   ================================================== */
-
-function hantarKeAppsScript(
-  idMurid
-) {
-
-
   /*
-   * Data yang dihantar.
-   *
-   * Hanya ID.
-   * Nama / IC / kelas tidak dihantar
-   * dari browser.
+   * Buang parameter daripada
+   * address bar.
    */
 
-  const data = {
+  if (
+    window.history &&
+    window.history.replaceState
+  ) {
 
-    id:
-      idMurid
-
-  };
-
-
-  const blob =
-    new Blob(
-
-      [
-        JSON.stringify(data)
-      ],
-
-      {
-        type:
-          "text/plain"
-      }
-
-    );
-
-
-  /*
-   * sendBeacon akan menghantar
-   * POST ke Apps Script.
-   */
-
-  let berjaya =
-    false;
-
-
-  try {
-
-    berjaya =
-      navigator.sendBeacon(
-        API_URL,
-        blob
-      );
-
-  } catch (error) {
-
-    console.error(
-      "sendBeacon error:",
-      error
+    window.history.replaceState(
+      {},
+      document.title,
+      window.location.pathname
     );
 
   }
 
 
-  console.log(
-    "sendBeacon:",
-    berjaya
-  );
-
-
   /*
-   * Jika browser menerima
-   * request untuk dihantar.
+   * REKOD BERJAYA
    */
 
-  if (berjaya) {
+  if (
+    status === "berjaya"
+  ) {
 
 
-    paparMenunggu(
-      idMurid
-    );
+    document.getElementById(
+      "result"
+    ).innerHTML = `
+
+      <div class="card success">
+
+
+        <div class="success-title">
+
+          ✓ REKOD BERJAYA
+
+        </div>
+
+
+        <div class="info">
+
+          <strong>ID Murid:</strong><br>
+
+          ${escapeHTML(id || "")}
+
+        </div>
+
+
+        <div class="info">
+
+          Murid telah direkod
+          sebagai murid lewat.
+
+        </div>
+
+
+      </div>
+
+    `;
 
 
     /*
-     * Bagi sedikit masa kepada
-     * server menerima request.
+     * Selepas 1.5 saat,
+     * buka scanner semula.
      */
 
     setTimeout(
       function() {
 
-        paparBerjaya(
-          idMurid
-        );
+        mulaScanner();
 
       },
-      1200
+      1500
     );
 
 
-  } else {
-
-
-    paparRalat(
-      "Browser tidak berjaya menghantar data kepada sistem."
-    );
+    return true;
 
   }
 
-}
 
-
-
-/* ==================================================
-   PAPAR MENUNGGU
-   ================================================== */
-
-function paparMenunggu(
-  idMurid
-) {
-
-
-  document.getElementById(
-    "result"
-  ).innerHTML = `
-
-    <div class="card">
-
-
-      <div class="success-title">
-
-        QR BERJAYA DIBACA
-
-      </div>
-
-
-      <div class="info">
-
-        <strong>ID:</strong><br>
-
-        ${escapeHTML(idMurid)}
-
-      </div>
-
-
-      <div class="loading">
-
-        Menghantar rekod...
-
-      </div>
-
-
-    </div>
-
-  `;
-
-}
-
-
-
-/* ==================================================
-   PAPAR BERJAYA
-   ================================================== */
-
-function paparBerjaya(
-  idMurid
-) {
-
-
-  document.getElementById(
-    "result"
-  ).innerHTML = `
-
-    <div class="card success">
-
-
-      <div class="success-title">
-
-        ✓ REKOD BERJAYA DIHANTAR
-
-      </div>
-
-
-      <div class="info">
-
-        <strong>ID Murid:</strong><br>
-
-        ${escapeHTML(idMurid)}
-
-      </div>
-
-
-      <div class="info">
-
-        Rekod telah dihantar
-        ke sistem.
-
-      </div>
-
-
-    </div>
-
-
-    <button
-      onclick="mulaScanner()">
-
-      SCAN MURID SETERUSNYA
-
-    </button>
-
-  `;
-
-
-  sedangScan = false;
-
-}
-
-
-
-/* ==================================================
-   RALAT
-   ================================================== */
-
-function paparRalat(
-  mesej
-) {
-
+  /*
+   * REKOD GAGAL
+   */
 
   document.getElementById(
     "result"
@@ -623,14 +404,14 @@ function paparRalat(
 
       <div class="error-title">
 
-        RALAT SISTEM
+        RALAT REKOD
 
       </div>
 
 
       <div class="info">
 
-        ${escapeHTML(mesej)}
+        Rekod murid tidak berjaya.
 
       </div>
 
@@ -648,17 +429,202 @@ function paparRalat(
   `;
 
 
-  sedangScan = false;
+  return true;
 
 }
 
 
 
-/* ==================================================
+/* =====================================================
+   QR BERJAYA DIBACA
+   ===================================================== */
+
+function qrBerjaya(
+  decodedText,
+  decodedResult
+) {
+
+
+  console.log(
+    "QR DIBACA:",
+    decodedText
+  );
+
+
+  /*
+   * Elakkan scan berganda.
+   */
+
+  if (sedangScan) {
+
+    return;
+
+  }
+
+
+  sedangScan = true;
+
+
+  /*
+   * ID murid.
+   */
+
+  const idMurid =
+    decodedText.trim();
+
+
+  /*
+   * Paparan sementara.
+   */
+
+  document.getElementById(
+    "result"
+  ).innerHTML = `
+
+    <div class="card">
+
+
+      <div class="success-title">
+
+        QR BERJAYA DIBACA
+
+      </div>
+
+
+      <div class="info">
+
+        <strong>ID:</strong><br>
+
+        ${escapeHTML(idMurid)}
+
+      </div>
+
+
+      <div class="loading">
+
+        Membuka sistem rekod...
+
+      </div>
+
+
+    </div>
+
+  `;
+
+
+  /*
+   * Hentikan kamera.
+   */
+
+  hentikanScanner();
+
+
+  /*
+   * URL GitHub semasa.
+   *
+   * Kita buang query lama supaya
+   * return URL bersih.
+   */
+
+  const returnUrl =
+    window.location.origin +
+    window.location.pathname;
+
+
+  /*
+   * Bina URL Apps Script.
+   */
+
+  const url =
+
+    API_URL +
+
+    "?action=rekod" +
+
+    "&id=" +
+    encodeURIComponent(
+      idMurid
+    ) +
+
+    "&returnUrl=" +
+    encodeURIComponent(
+      returnUrl
+    );
+
+
+  console.log(
+    "URL APPS SCRIPT:",
+    url
+  );
+
+
+  /*
+   * Browser pergi ke Apps Script.
+   */
+
+  setTimeout(
+    function() {
+
+      window.location.href =
+        url;
+
+    },
+    500
+  );
+
+}
+
+
+
+/* =====================================================
+   HENTIKAN SCANNER
+   ===================================================== */
+
+function hentikanScanner() {
+
+
+  if (!scanner) {
+
+    return;
+
+  }
+
+
+  scanner
+
+    .clear()
+
+    .then(function() {
+
+      console.log(
+        "Scanner dihentikan."
+      );
+
+    })
+
+    .catch(function(error) {
+
+      console.log(
+        "Scanner clear:",
+        error
+      );
+
+    });
+
+}
+
+
+
+/* =====================================================
    MULAKAN SCANNER
-   ================================================== */
+   ===================================================== */
 
 function mulaScanner() {
+
+
+  console.log(
+    "Memulakan scanner..."
+  );
 
 
   document.getElementById(
@@ -670,12 +636,13 @@ function mulaScanner() {
 
 
   /*
-   * Bersihkan scanner lama
+   * Bersihkan scanner lama.
    */
 
   if (scanner) {
 
     scanner
+
       .clear()
 
       .catch(function(error) {
@@ -691,7 +658,7 @@ function mulaScanner() {
 
 
   /*
-   * Scanner baharu
+   * Scanner baharu.
    */
 
   scanner =
@@ -699,10 +666,6 @@ function mulaScanner() {
       "reader"
     );
 
-
-  /*
-   * Konfigurasi
-   */
 
   const config = {
 
@@ -729,7 +692,7 @@ function mulaScanner() {
 
 
   /*
-   * Buka kamera
+   * Buka kamera.
    */
 
   scanner.start(
@@ -746,8 +709,8 @@ function mulaScanner() {
     function(errorMessage) {
 
       /*
-       * Abaikan mesej
-       * ketika mencari QR.
+       * Abaikan mesej semasa
+       * scanner mencari QR.
        */
 
     }
@@ -805,13 +768,11 @@ function mulaScanner() {
 
 
 
-/* ==================================================
+/* =====================================================
    ESCAPE HTML
-   ================================================== */
+   ===================================================== */
 
-function escapeHTML(
-  text
-) {
+function escapeHTML(text) {
 
 
   const div =
@@ -832,11 +793,28 @@ function escapeHTML(
 
 
 
-/* ==================================================
-   MULA
-   ================================================== */
+/* =====================================================
+   MULA SISTEM
+   ===================================================== */
 
-mulaScanner();
+
+/*
+ * Kalau baru masuk laman biasa:
+ * terus buka scanner.
+ *
+ * Kalau baru balik daripada Apps Script:
+ * papar status dahulu.
+ */
+
+const sudahKembali =
+  semakStatusKembali();
+
+
+if (!sudahKembali) {
+
+  mulaScanner();
+
+}
 
 
 </script>
