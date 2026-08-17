@@ -282,74 +282,38 @@ let sedangScan = false;
 /* ==================================================
    QR BERJAYA
    ================================================== */
+function qrBerjaya(decodedText, decodedResult) {
 
-function qrBerjaya(
-  decodedText,
-  decodedResult
-) {
-
-
-  console.log(
-    "QR DIBACA:",
-    decodedText
-  );
-
-
-  /*
-   * Elakkan scan berganda
-   */
+  console.log("QR DIBACA:", decodedText);
 
   if (sedangScan) {
-
     return;
-
   }
-
 
   sedangScan = true;
 
+  const idMurid = decodedText.trim();
 
   /*
-   * Ambil ID
+   * Paparkan maklumat yang telah dibaca
    */
 
-  const idMurid =
-    decodedText.trim();
-
-
-  /*
-   * Paparan sementara
-   */
-
-  document.getElementById(
-    "result"
-  ).innerHTML = `
+  document.getElementById("result").innerHTML = `
 
     <div class="card">
 
-
       <div class="success-title">
-
         QR BERJAYA DIBACA
-
       </div>
-
 
       <div class="info">
-
         <strong>ID:</strong><br>
-
         ${escapeHTML(idMurid)}
-
       </div>
-
 
       <div class="loading">
-
-        Sedang merekod murid...
-
+        Membuka sistem rekod...
       </div>
-
 
     </div>
 
@@ -357,19 +321,32 @@ function qrBerjaya(
 
 
   /*
-   * Hentikan kamera
+   * Bina URL Apps Script
    */
 
-  hentikanScanner();
+  const url =
+    API_URL +
+    "?action=rekod" +
+    "&id=" +
+    encodeURIComponent(idMurid);
+
+
+  console.log("BUKA URL:", url);
 
 
   /*
-   * Hantar data
+   * INI YANG PALING PENTING
+   *
+   * Browser akan pergi ke URL
+   * tersebut seperti kita taip
+   * URL dan tekan ENTER.
    */
 
-  hantarKeAppsScript(
-    idMurid
-  );
+  setTimeout(function() {
+
+    window.location.href = url;
+
+  }, 500);
 
 }
 
